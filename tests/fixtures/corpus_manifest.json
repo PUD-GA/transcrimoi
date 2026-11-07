@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "authority": "Corpus fourni par l'utilisateur comme entrée valide de SonalPi2",
+  "pairs": [
+    {
+      "srt": "tests/sources/synth/srt/1Coordinatrice.srt",
+      "srt_sha256": "2d9d90f17616752c981b6375addb990064c2608d784c69155d517a99dc177863",
+      "audio": "tests/sources/synth/audio/1Coordinatrice.mp3",
+      "audio_sha256": "c22be117e01e8734d390280c6566020f000e478bc092c61c4a04b89dd730e85a",
+      "duration_seconds": 223.529796,
+      "blocks": 100,
+      "speakers": [
+        0,
+        1
+      ],
+      "unattributed_blocks": 0,
+      "first_start": 0.7,
+      "last_end": 223.48,
+      "overlapping_adjacent_blocks": 0
+    },
+    {
+      "srt": "tests/sources/synth/srt/2RetraiteAnticipee.srt",
+      "srt_sha256": "022090d0923f41e67d38fa0ffaddb294b2617b2647088d41a0a472ab66684663",
+      "audio": "tests/sources/synth/audio/2RetraiteAnticipee.mp3",
+      "audio_sha256": "7f454c3ab44f38f3d54d432de82e501caf63d930c8334ec25afec75ae7cbf95e",
+      "duration_seconds": 296.777143,
+      "blocks": 96,
+      "speakers": [
+        0,
+        1
+      ],
+      "unattributed_blocks": 0,
+      "first_start": 0.0,
+      "last_end": 296.72,
+      "overlapping_adjacent_blocks": 0
+    },
+    {
+      "srt": "tests/sources/synth/srt/3Cuisinier.srt",
+      "srt_sha256": "8ac7538be937936cef512452e60102ae6edbc419db3a2726649ec10e78edb6bc",
+      "audio": "tests/sources/synth/audio/3Cuisinier.mp3",
+      "audio_sha256": "bd5d2af5041fe2c5a483c7aaa9d68ae8ebd54435f77b61cb6485622d8435c02b",
+      "duration_seconds": 234.605714,
+      "blocks": 80,
+      "speakers": [
+        0,
+        1
+      ],
+      "unattributed_blocks": 0,
+      "first_start": 0.0,
+      "last_end": 234.54,
+      "overlapping_adjacent_blocks": 0
+    },
+    {
+      "srt": "tests/sources/synth/srt/4Etudiants.srt",
+      "srt_sha256": "e1383786d1bcb16c55311ab0b4e5a699a3d3e4388b0bd44438c90dc31077db25",
+      "audio": "tests/sources/synth/audio/4Etudiants.mp3",
+      "audio_sha256": "eedbc6c69a11226cc94a015cacc1b78283449d39c47fe8bbc00bdd15dc273d0c",
+      "duration_seconds": 214.517551,
+      "blocks": 62,
+      "speakers": [
+        0,
+        1,
+        2
+      ],
+      "unattributed_blocks": 0,
+      "first_start": 0.0,
+      "last_end": 214.46,
+      "overlapping_adjacent_blocks": 0
+    }
+  ]
+}

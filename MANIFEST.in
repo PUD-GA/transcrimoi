@@ -1,0 +1,25 @@
+# Sources utiles pour reconstruire et valider ; aucun média, modèle ou résultat local.
+include .gitignore README.md Plan.md backend.lock.json
+recursive-include docs *.md
+recursive-include .github/workflows *.yml
+recursive-include scripts *.py
+include tests/*.py tests/README.md
+recursive-include tests/tools *.py
+recursive-include tests/fixtures *.json
+recursive-include tests/experiments *.json
+prune tests/sources
+include tests/sources/README.md
+prune tests/runs
+include tests/runs/README.md
+prune tests/models
+include tests/models/README.md
+prune models
+prune vendor
+prune build
+prune dist
+prune .venv
+prune .venv-gui
+prune CorpusReel
+prune CorpusSynth
+prune runs
+global-exclude *.py[cod] *.log *.pid *.part

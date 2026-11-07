@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "transcrimoi"
+version = "0.1.0"
+description = "Transcription locale et diarisation vers un SRT pour SonalPi2"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+gui = ["PySide6-Essentials>=6.8,<7"]
+
+[project.scripts]
+transcrimoi = "transcrimoi.__main__:main"
+
+[project.gui-scripts]
+transcrimoi-gui = "transcrimoi.gui:main"
+
+[tool.setuptools.packages.find]
+include = ["transcrimoi*"]

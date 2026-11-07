@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "purpose": "Comparaison Parakeet v3 / Ultra F16, sans modifier le backend par défaut",
+  "native_commit": "2eac2e77d9c7ef8899f7a86a46e693ac5ac1a5cd",
+  "model_repository": "mudler/parakeet-cpp-gguf",
+  "model_revision": "07a08a3a405d20c5434b9a1442f6e6cf571f57ad",
+  "baseline_model": {
+    "file": "tdt-0.6b-v3-f16.gguf",
+    "checkpoint": "nvidia/parakeet-tdt-0.6b-v3",
+    "precision": "F16",
+    "size": 1441046400,
+    "sha256": "8ba47343e1e919895aca90e099150a01ed203ee0942d8ed31e27295efc5abb22"
+  },
+  "model": {
+    "file": "ultra-f16.gguf",
+    "checkpoint": "moondream/parakeet-ultra",
+    "precision": "F16",
+    "size": 1441900448,
+    "sha256": "5414aea5536178726e8dca20cdfc91cfa3e5443a83a65c4d08acd1c5df65323f",
+    "license": "CC-BY-4.0"
+  },
+  "source": "tests/sources/wamatipsia/WamaTipsIA.wav",
+  "cuts": "tests/sources/wamatipsia/cuts.json",
+  "source_sha256": "df921e58b70df6243da9c76c7bd5cf263fb34df2c0fe186788b194877a0e784d",
+  "cut_indices": [0, 20, 100, 180],
+  "padding_ms_each_side": [0, 250],
+  "threads": 4
+}

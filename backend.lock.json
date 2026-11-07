@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "native": {
+    "repository": "https://github.com/mudler/parakeet.cpp.git",
+    "commit": "2eac2e77d9c7ef8899f7a86a46e693ac5ac1a5cd",
+    "ggml_commit": "e705c5fed490514458bdd2eaddc43bd098fcce9b",
+    "cmake_options": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "BUILD_SHARED_LIBS": "OFF",
+      "PARAKEET_BUILD_SERVER": "OFF",
+      "PARAKEET_WITH_CED": "OFF",
+      "PARAKEET_WITH_VOICEDETECT": "OFF",
+      "PARAKEET_BUILD_TESTS": "ON",
+      "GGML_NATIVE": "OFF",
+      "BASH_EXECUTABLE": "BASH_EXECUTABLE-NOTFOUND"
+    }
+  },
+  "model_repository": "mudler/parakeet-cpp-gguf",
+  "model_revision": "07a08a3a405d20c5434b9a1442f6e6cf571f57ad",
+  "models": {
+    "asr": {
+      "file": "ultra-f16.gguf",
+      "checkpoint": "moondream/parakeet-ultra",
+      "license": "CC-BY-4.0",
+      "precision": "F16",
+      "size": 1441900448,
+      "sha256": "5414aea5536178726e8dca20cdfc91cfa3e5443a83a65c4d08acd1c5df65323f"
+    },
+    "diarization": {
+      "file": "nemotron-3-diarization-f16.gguf",
+      "checkpoint": "nvidia/Nemotron-3-Diarization",
+      "precision": "F16",
+      "size": 200715584,
+      "sha256": "3dca41a92162af6edf96276c4d2c397b034b55abf9eb2662a58cc7bc8c872683"
+    },
+    "vad": {
+      "file": "silero-vad-f16.gguf",
+      "checkpoint": "Silero VAD (conversion mudler)",
+      "precision": "F16",
+      "size": 1264928,
+      "sha256": "8160489282352accc0e95925c2f6bf3d76fb8f7bccdce5c7e46808cb15e8443c"
+    }
+  }
+}

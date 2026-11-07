@@ -1,0 +1,75 @@
+name: Desktop CPU
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      native:
+        description: "Compiler le moteur et tester Ultra réel (télécharge ~1,64 Go par OS)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: FFmpeg et bibliothèques Qt (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0
+      - name: FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg --no-progress -y
+      - name: FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Installer uniquement le contrôleur et Qt
+        run: python -m pip install -e ".[gui]"
+      - name: Vérifier l'absence de pile Photon/Torch
+        run: python -c "import importlib.util; assert all(importlib.util.find_spec(m) is None for m in ('torch', 'moondream', 'kestrel'))"
+      - name: Vérifier les fichiers publiables et la séparation des données locales
+        run: python tests/tools/check_repository.py
+      - name: Tests noyau et fenêtre (inférence simulée)
+        run: python -m unittest discover -s tests -v
+      - name: Capture de la fenêtre
+        env:
+          QT_QPA_PLATFORM: ${{ runner.os == 'Windows' && 'windows' || 'offscreen' }}
+        run: python tests/tools/smoke_gui.py --preview-only --output-dir tests/runs/gui-preview
+      - name: Préparer le vrai moteur CPU et Ultra
+        if: github.event_name == 'workflow_dispatch' && inputs.native
+        run: python scripts/prepare_backend.py --download-models --jobs 3
+      - name: Tests natifs ciblés
+        if: github.event_name == 'workflow_dispatch' && inputs.native
+        run: ctest --test-dir build/native -C Release -R "^(test_sas_merge|test_vad_segmenter|cli_version_long)$" --output-on-failure
+      - name: Fenêtre → Ultra réel → SRT (silence synthétique)
+        if: github.event_name == 'workflow_dispatch' && inputs.native
+        env:
+          QT_QPA_PLATFORM: ${{ runner.os == 'Windows' && 'windows' || 'offscreen' }}
+        run: python tests/tools/smoke_gui.py --output-dir tests/runs/gui-native --timeout 300
+      - name: Rapports et captures (pas de média utilisateur)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            tests/runs/gui-preview/*.png
+            tests/runs/gui-preview/report.json
+            tests/runs/gui-native/*.png
+            tests/runs/gui-native/report.json
+            tests/runs/gui-native/work/**/*.log
+          if-no-files-found: ignore
