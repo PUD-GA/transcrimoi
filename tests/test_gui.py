@@ -116,8 +116,28 @@ class GuiTests(unittest.TestCase):
         self.app.processEvents()
         result = self.start_and_wait()
         self.assertEqual(result["status"], "completed")
-        self.assertEqual(Path(result["output"]), output)
+        # macOS résout /var en /private/var ; Windows développe les noms courts 8.3.
+        self.assertEqual(Path(result["output"]), output.resolve())
         self.assertTrue(output.is_file())
+        self.assertFalse(self.source.with_suffix(".srt").exists())
+
+    def test_custom_destination_through_directory_alias(self):
+        actual = self.root / "destination réelle"
+        actual.mkdir()
+        alias = self.root / "alias"
+        try:
+            alias.symlink_to(actual.resolve(), target_is_directory=True)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f"Création de lien symbolique indisponible : {error}")
+        output = alias / "résultat choisi.srt"
+        self.window.output_edit.setText(str(output))
+        self.window.source_edit.setFocus()
+        self.app.processEvents()
+        result = self.start_and_wait()
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(Path(result["output"]), output.resolve())
+        self.assertTrue(Path(result["output"]).samefile(output))
+        self.assertTrue((actual / output.name).is_file())
         self.assertFalse(self.source.with_suffix(".srt").exists())
 
     def test_missing_media_rejected_before_loading_backend(self):
