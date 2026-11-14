@@ -2,8 +2,9 @@
 
 > Rapport historique : au moment de ces essais, v3 restait le modèle par défaut.
 > Ultra F16 a depuis été adopté explicitement dans `backend.lock.json`, lors de
-> l’ajout de l’[interface minimale](interface-minimale.md). Les résultats ci-dessous
-> et les anciens SRT ne sont pas modifiés.
+> l’ajout de l’[interface minimale](interface-minimale.md), puis remplacé par Fluid Q8_0
+> par choix utilisateur. Voir l’[essai Fluid](essai-fluid-speech-pro.md).
+> Les résultats ci-dessous et les anciens SRT ne sont pas modifiés.
 
 ## Comparaison sur quatre extraits
 

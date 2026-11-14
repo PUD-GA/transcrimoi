@@ -17,6 +17,17 @@ class Segmentation:
     nearest_gap: float = 0.15
 
 
+OMITTED_ASR_TOKENS = frozenset({"<unk>"})
+
+
+def filter_export_words(words: list[Word]) -> tuple[list[Word], list[Word]]:
+    """Omettre uniquement les marqueurs exacts, sans modifier les mots natifs."""
+    kept, omitted = [], []
+    for word in words:
+        (omitted if word.text in OMITTED_ASR_TOKENS else kept).append(word)
+    return kept, omitted
+
+
 def merge_turns(turns: list[Turn]) -> list[Turn]:
     """Union par locuteur pour ne jamais compter deux fois un recouvrement."""
     merged: list[Turn] = []

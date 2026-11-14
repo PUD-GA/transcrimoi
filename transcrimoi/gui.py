@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import __version__
-from .assignment import Segmentation
+from .assignment import OMITTED_ASR_TOKENS, Segmentation
 from .backend import Backend
 from .job import Job
 from .process import Cancelled
@@ -93,6 +93,7 @@ class TranscriptionWorker(QThread):
                 "source_sha256": sha256_file(self.source), "backend": backend.provenance,
                 "ffmpeg_sha256": sha256_file(ffmpeg), "threads": threads,
                 "segmentation": asdict(Segmentation()),
+                "omitted_asr_tokens": sorted(OMITTED_ASR_TOKENS),
             }
             if self.cancel.is_set():
                 raise Cancelled("Traitement annulé")
@@ -101,7 +102,8 @@ class TranscriptionWorker(QThread):
             result = Job(backend, threads=threads, event=self.event.emit,
                          cancel=self.cancel, ffmpeg=ffmpeg).run(self.source, self.output, work)
             outcome = {"status": "completed", "output": str(self.output),
-                       "cues": len(result["cues"]), "unknown_words": result["unknown_words"]}
+                       "cues": len(result["cues"]), "unknown_words": result["unknown_words"],
+                       "omitted_token_count": result["omitted_token_count"]}
         except Cancelled:
             outcome = {"status": "cancelled"}
         except Exception as error:
@@ -141,7 +143,7 @@ class MainWindow(QMainWindow):
         font.setBold(True)
         title.setFont(font)
         layout.addWidget(title)
-        subtitle = QLabel("Audio ou vidéo → SRT pour SonalPi2\nUltra · CPU · Traitement local · Reconnaissance multilingue automatique")
+        subtitle = QLabel("Audio ou vidéo → SRT pour SonalPi2\nFluid Speech Pro Q8 · CPU · Traitement local · Reconnaissance multilingue automatique")
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
 
@@ -316,9 +318,13 @@ class MainWindow(QMainWindow):
             if outcome["cues"]:
                 message = f"Terminé : {outcome['cues']} blocs. SRT à importer dans SonalPi2."
                 if outcome["unknown_words"]:
-                    message += f" {outcome['unknown_words']} mots sans locuteur certain."
+                    message += f" {outcome['unknown_words']} mots sans locuteur."
+            elif outcome.get("omitted_token_count", 0):
+                message = "Aucun texte exportable après filtrage : le SRT produit est vide."
             else:
                 message = "Aucune parole détectée : le SRT produit est vide."
+            if outcome.get("omitted_token_count", 0):
+                message += f" {outcome['omitted_token_count']} marqueur(s) <unk> omis du SRT ; détails dans les journaux."
             self.status.setText(message)
         elif outcome.get("status") == "cancelled":
             self.status.setText("Traitement annulé. Relancez pour reprendre les étapes validées.")
@@ -388,7 +394,7 @@ class MainWindow(QMainWindow):
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Interface locale transcrimoi — Ultra CPU")
+    parser = argparse.ArgumentParser(description="Interface locale transcrimoi — Fluid Speech Pro CPU")
     parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1],
                         help="Dossier contenant backend.lock.json, build/ et models/")
     args = parser.parse_args(argv)

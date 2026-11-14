@@ -53,7 +53,7 @@ de tous les processus ni une mesure sur entretien de deux heures.
 - Sorties natives brutes, JSON attribué, audio et état : `tests/runs/synth/work/<nom>/`.
 - Rapport reproductible : `tests/runs/synth/report.json`.
 - Provenance historique : `tests/runs/synth/work/<nom>/state.json` ; les manifests courants
-  `backend.lock.json` et `build/backend.json` décrivent désormais Ultra, pas ce premier essai v3.
+  `backend.lock.json` et `build/backend.json` décrivent désormais Fluid, pas ce premier essai v3.
 
 Le rapport courant provient de la seconde exécution : ses `wall_seconds_this_run`
 sont des temps de **réutilisation**, pas d’inférence. Les durées originales des

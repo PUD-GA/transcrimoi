@@ -12,7 +12,10 @@ from typing import Callable
 import wave
 
 from . import __version__
-from .assignment import Segmentation, assign_words, resolve_contextual_speakers, segment_words
+from .assignment import (
+    OMITTED_ASR_TOKENS, Segmentation, assign_words, filter_export_words,
+    resolve_contextual_speakers, segment_words,
+)
 from .backend import Backend
 from .process import Cancelled, run_process
 from .schema import SCHEMA_VERSION, parse_asr, parse_diarization
@@ -109,6 +112,7 @@ class Job:
                 "backend": self.backend.provenance, "ffmpeg_sha256": sha256_file(Path(ffmpeg)),
                 "threads_asr": self.threads, "segmentation": asdict(self.segmentation),
                 "audio_filter": "aresample=async=1:first_pts=0",
+                "omitted_asr_tokens": sorted(OMITTED_ASR_TOKENS),
             }
             job_id = fingerprint(provenance)
             state_path = work / "state.json"
@@ -166,7 +170,8 @@ class Job:
                               lambda path: parse_diarization(read_json(path), duration))
                 self.check_cancel()
                 self.emit("assignment", "started")
-                assigned = assign_words(words, turns, nearest_gap=self.segmentation.nearest_gap)
+                export_words, omitted = filter_export_words(words)
+                assigned = assign_words(export_words, turns, nearest_gap=self.segmentation.nearest_gap)
                 assigned = resolve_contextual_speakers(assigned)
                 cues = segment_words(assigned, duration, self.segmentation)
                 unknown = sum(item.speaker is None for item in assigned)
@@ -174,13 +179,15 @@ class Job:
                     "schema_version": SCHEMA_VERSION, "job_id": job_id, "duration": duration,
                     "words": [asdict(item) for item in assigned], "turns": [asdict(t) for t in turns],
                     "cues": [asdict(c) for c in cues], "unknown_words": unknown,
+                    "native_word_count": len(words), "omitted_token_count": len(omitted),
+                    "omitted_tokens": [{**asdict(word), "reason": "native_unknown_token"} for word in omitted],
                     "speakers_observed": sorted({t.speaker for t in turns}),
                 }
                 write_json(work / "result.json", result)
                 state["completed"]["assignment"] = {
                     "file": "result.json", "sha256": sha256_file(work / "result.json")}
                 write_json(state_path, state)
-                self.emit("assignment", "completed", unknown_words=unknown)
+                self.emit("assignment", "completed", unknown_words=unknown, omitted_token_count=len(omitted))
                 self.check_cancel()
                 if sha256_file(source) != provenance["source_sha256"]:
                     raise ValueError("Le média source a changé pendant le traitement")
@@ -188,7 +195,8 @@ class Job:
                 export_srt(output, cues, overwrite=overwrite)
                 state.update(status="completed", output=str(output), output_sha256=sha256_file(output))
                 write_json(state_path, state)
-                self.emit("export", "completed", path=str(output), cues=len(cues), unknown_words=unknown)
+                self.emit("export", "completed", path=str(output), cues=len(cues), unknown_words=unknown,
+                          omitted_token_count=len(omitted))
                 return result
             except BaseException as error:
                 state.update(status="cancelled" if isinstance(error, (Cancelled, KeyboardInterrupt)) else "failed",

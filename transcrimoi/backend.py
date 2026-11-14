@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .model_verification import verify_model
 from .storage import read_json, sha256_file
 
 
@@ -17,7 +18,7 @@ class Backend:
     provenance: dict
 
     @classmethod
-    def verified(cls, root: Path) -> Backend:
+    def verified(cls, root: Path, *, force_models: bool = False) -> Backend:
         lock_path = root / "backend.lock.json"
         lock = read_json(lock_path)
         manifest = read_json(root / "build/backend.json")
@@ -36,8 +37,7 @@ class Backend:
         models = {}
         for role, item in lock["models"].items():
             path = root / "models" / item["file"]
-            if path.stat().st_size != item["size"] or sha256_file(path) != item["sha256"]:
-                raise ValueError(f"Modèle corrompu ou incompatible : {path}")
+            verify_model(path, size=item["size"], sha256=item["sha256"], force=force_models)
             models[role] = path
         return cls(binaries["parakeet-cli"], binaries["diarize"], models["asr"],
                    models["diarization"], models["vad"], {"lock": lock, "build": manifest})

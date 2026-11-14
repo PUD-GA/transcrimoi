@@ -31,8 +31,11 @@ class FakeBackend:
             return [sys.executable, "-c", "import time; time.sleep(60)"]
         if self.mode == "failure":
             return [sys.executable, "-c", "import sys; sys.stderr.write('échec simulé'); sys.exit(2)"]
-        words = [] if self.mode == "silence" else [{"w": "Bonjour.", "start": 0, "end": .4}]
-        result = {"text": "" if not words else "Bonjour.", "words": words}
+        words = [] if self.mode in ("silence", "all_unknown") else [{"w": "Bonjour.", "start": 0, "end": .4}]
+        text = "Bonjour." if words else ""
+        if self.mode in ("unknown", "all_unknown"):
+            words.append({"w": "<unk>", "start": .6, "end": .8})
+        result = {"text": text, "words": words}
         return [sys.executable, "-c", f"print({json.dumps(result)!r})"]
 
     def diarization_command(self, audio):
@@ -186,6 +189,25 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(result["cues"], 0)
         self.assertIn("Aucune parole", self.window.status.text())
         self.assertEqual(Path(result["output"]).read_bytes(), b"")
+
+    def test_unknown_omissions_are_reported_without_exporting_marker(self):
+        self.backend.mode = "unknown"
+        result = self.start_and_wait()
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["omitted_token_count"], 1)
+        self.assertIn("1 marqueur(s) <unk> omis", self.window.status.text())
+        self.assertNotIn("<unk>", Path(result["output"]).read_text())
+        self.assertTrue(self.window.logs_button.isEnabled())
+
+    def test_all_unknown_is_not_misrepresented_as_no_speech(self):
+        self.backend.mode = "all_unknown"
+        result = self.start_and_wait()
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["cues"], 0)
+        self.assertEqual(result["omitted_token_count"], 1)
+        self.assertIn("Aucun texte exportable après filtrage", self.window.status.text())
+        self.assertNotIn("Aucune parole détectée", self.window.status.text())
+        self.assertIn("<unk> omis", self.window.status.text())
 
     def test_cancellation_and_resume_with_validated_audio(self):
         self.backend.mode = "slow"

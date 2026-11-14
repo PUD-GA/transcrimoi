@@ -6,13 +6,18 @@ La correction se fait dans SonalPi2 : transcrimoi n’embarque pas d’éditeur.
 ## État actuel
 
 - Une fenêtre PySide6/Qt, un média à la fois, annulation et reprise par phase.
-- **Parakeet Ultra F16**, Silero et Nemotron exécutés avec parakeet.cpp/GGML.
+- **Fluid Speech Pro Q8_0**, Silero et Nemotron exécutés avec parakeet.cpp/GGML.
 - Aucun Photon, Torch ou SDK Moondream dans les dépendances du produit.
-- Traitement et interface essayés sous **Linux/WSL et Windows 11** ; macOS reste à valider.
+- Socle essayé sous **Linux/WSL et Windows 11** avec Ultra ; adoption de Fluid et filtrage validés sous Linux/WSL. Windows et macOS restent à qualifier pour cette version.
 - Prototype développeur : les applications autonomes et installateurs restent à fabriquer.
 
 Les résultats et limites sont décrits dans la [validation de l’interface](docs/interface-minimale.md),
 le [contrat SRT](docs/contrat-srt.md) et le [plan](Plan.md).
+Un [essai séparé de Fluid Speech Pro Q8](docs/essai-fluid-speech-pro.md) confirme sa
+compatibilité et une mémoire ASR réduite, sans gain de précision établi sur notre
+petit corpus français. Fluid Q8 est néanmoins retenu par choix utilisateur, pour son
+potentiel multilingue et sa mémoire réduite. Les gains multilingues annoncés en amont
+ne constituent pas une validation de notre version GGUF Q8 sur ces langues.
 
 ## Organisation du projet
 
@@ -76,13 +81,27 @@ pour fabriquer un paquet. Employer un environnement propre comme `.venv-gui`.
 
 Le préparateur récupère le runtime et son sous-module figés, applique les correctifs
 GGML par Git (sans Bash), compile les deux exécutables utiles et télécharge environ
-**1,64 Go** de modèles. Taille et SHA-256 sont vérifiés. Aucun serveur d’inférence,
-GPU, conversion de modèle ou installation de Torch n’est nécessaire.
+**1,14 Go** de modèles. Taille et SHA-256 sont vérifiés après téléchargement, puis
+la vérification réussie est mémorisée localement. Aucun serveur d’inférence, GPU,
+conversion de modèle ou installation de Torch n’est nécessaire.
 
 **Utiliser une copie de travail distincte par OS** : ne pas partager le cache CMake ni
 `build/backend.json` entre Windows et Linux/WSL. Makefiles/Ninja et les sorties Release
 multi-configuration sont pris en charge. Le build x86 testé utilise notamment AVX2 ;
 la compatibilité avec tous les processeurs n’est pas encore qualifiée.
+
+### Mise à jour depuis Ultra
+
+Relancer `scripts/prepare_backend.py --download-models --jobs 4` : cela met à jour
+`build/backend.json` et vérifie/télécharge les poids Fluid depuis leur dépôt officiel.
+Les dépôts et révisions peuvent être spécifiques à chaque modèle dans `backend.lock.json` ;
+Silero et Nemotron conservent leur source figée précédente.
+Les anciens poids ne sont jamais supprimés automatiquement. Pour garder Ultra comme
+témoin, le déplacer dans `tests/models/ultra-f16.gguf`.
+
+La version 0.2.0 introduit aussi le filtrage ciblé décrit ci-dessous. Les anciens SRT
+et checkpoints ne sont pas réécrits ; utiliser un nouveau dossier de travail en CLI.
+L’interface choisit automatiquement une nouvelle identité de travail.
 
 ## Utilisation
 
@@ -97,7 +116,42 @@ des journaux. Ils peuvent être volumineux et ne sont pas supprimés automatique
 
 À la fin, importer manuellement le SRT dans SonalPi2. Les identifiants de locuteurs
 sont propres à chaque transcription, pas des identités persistantes entre entretiens.
-Les blocs sans attribution certaine n’ont pas de préfixe ; leur import reste à qualifier.
+Les mots non attribués directement sont résolus par le contexte temporel, sans distance
+maximale ; en cas d’égalité, le locuteur précédent est retenu par choix explicite.
+Les blocs restant sans locuteur après cette résolution n’ont pas de préfixe ; leur import
+reste à qualifier. Le nombre de mots sans locuteur n’est pas une mesure de confiance.
+Voir les [règles d’attribution](docs/contrat-srt.md#règles-de-génération).
+
+### Marqueurs non reconnus
+
+Les tokens exactement égaux à `<unk>` sont omis avant attribution et segmentation,
+sans remplacer ni inventer de texte. Les mots contenant ce marqueur et les autres
+balises ne sont pas supprimés. Le fichier natif `asr.json` reste intact ; `result.json`
+conserve `native_word_count`, `omitted_token_count` et la liste `omitted_tokens` avec
+leurs temps, confiance éventuelle et raison. La fenêtre et la CLI signalent le nombre
+d’omissions. Ce nettoyage ne récupère pas une parole manquante et n’est pas une preuve
+de meilleure reconnaissance. Le même filtrage s’applique à tous les modèles.
+
+### Vérification des modèles
+
+Avant chaque tâche, l’application vérifie la présence et les caractéristiques des modèles
+(taille, dates de modification/changement et identité du fichier). Si elles correspondent
+à une vérification SHA-256 réussie, le contenu n’est pas relu. Un changement de fichier,
+d’empreinte attendue ou un cache absent/invalide déclenche une vérification complète.
+Les petits caches `.MODELE.gguf.verified.json` restent à côté des modèles, hors Git.
+Si ce dossier n’est pas inscriptible, les vérifications fonctionnent sans cache.
+
+Ce raccourci détecte les changements ordinaires ; il ne remplace pas une vérification
+complète contre une altération dissimulée. Pour forcer cette dernière :
+
+```bash
+python -m transcrimoi verify-backend
+```
+
+`--project-root chemin/runtime` permet de viser un autre runtime. Cette commande et
+une préparation explicite avec `--download-models` relisent intégralement les modèles.
+Les binaires restent vérifiés par SHA-256 avant chaque tâche ; les contrôles du média
+source sont inchangés.
 
 ### CLI développeur
 

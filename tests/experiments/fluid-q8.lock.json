@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "purpose": "Comparaison Ultra F16 / Fluid Speech Pro Q8_0, sans changer le produit",
+  "native_commit": "2eac2e77d9c7ef8899f7a86a46e693ac5ac1a5cd",
+  "baseline_repository": "mudler/parakeet-cpp-gguf",
+  "baseline_revision": "07a08a3a405d20c5434b9a1442f6e6cf571f57ad",
+  "baseline_model": {
+    "file": "ultra-f16.gguf",
+    "checkpoint": "moondream/parakeet-ultra",
+    "precision": "F16",
+    "size": 1441900448,
+    "sha256": "5414aea5536178726e8dca20cdfc91cfa3e5443a83a65c4d08acd1c5df65323f",
+    "license": "CC-BY-4.0"
+  },
+  "model_repository": "FluidVoice-Labs/fluid-speech-pro-gguf",
+  "model_revision": "fee970d9ac83f6d236632d39b67cbec12f5a9020",
+  "model": {
+    "file": "fluid-speech-pro-q8_0.gguf",
+    "checkpoint": "FluidVoice-Labs/fluid-speech-pro",
+    "precision": "Q8_0",
+    "size": 940663968,
+    "sha256": "1b9c613fe3b058895885105e696c203a1a0b47c37eace80d18b51e20dcdc5ffd",
+    "license": "CC-BY-4.0",
+    "attribution": "Fluid Speech Pro by FluidVoice"
+  },
+  "threads": 4,
+  "corpus_manifest_sha256": "e1658ff02b91b83c268602bcda1620383c27992eae28fe324cb8001caec11f4e",
+  "wamatipsia": {
+    "source": "tests/sources/wamatipsia/WamaTipsIA.wav",
+    "source_sha256": "df921e58b70df6243da9c76c7bd5cf263fb34df2c0fe186788b194877a0e784d",
+    "cuts": "tests/sources/wamatipsia/cuts.json",
+    "cuts_sha256": "ff47d4318ed86829310399818c42c68e60f19f500831da77f5673dfe6761a6b0",
+    "cut_indices": [0, 20, 100, 180]
+  }
+}

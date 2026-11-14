@@ -81,11 +81,12 @@ def main() -> None:
             "reference_blocks": pair["blocks"], "generated_blocks": len(result["cues"]),
             "reference_speakers": len(pair["speakers"]), "observed_speaker_slots": result["speakers_observed"],
             "unknown_words": result["unknown_words"], "asr_words": len(result["words"]),
+            "native_word_count": result["native_word_count"], "omitted_token_count": result["omitted_token_count"],
             "word_errors_against_supplied_srt": errors, "reference_word_count": len(reference_words),
             "wer_against_supplied_srt": errors / len(reference_words) if reference_words else None,
             "wer_source": "Texte des blocs SRT générés, préfixes Speaker exclus",
             "raw_asr_wer_against_supplied_srt": raw_errors / len(reference_words) if reference_words else None,
-            "native_unknown_tokens": sum("<unk>" in item["w"] for item in raw["words"]),
+            "native_unknown_tokens": sum(item["w"].strip() == "<unk>" for item in raw["words"]),
             "generated_srt_sha256": sha256_file(output),
         }
         report["cases"].append(item)

@@ -19,12 +19,15 @@
   "model_revision": "07a08a3a405d20c5434b9a1442f6e6cf571f57ad",
   "models": {
     "asr": {
-      "file": "ultra-f16.gguf",
-      "checkpoint": "moondream/parakeet-ultra",
+      "file": "fluid-speech-pro-q8_0.gguf",
+      "checkpoint": "FluidVoice-Labs/fluid-speech-pro",
+      "repository": "FluidVoice-Labs/fluid-speech-pro-gguf",
+      "revision": "fee970d9ac83f6d236632d39b67cbec12f5a9020",
       "license": "CC-BY-4.0",
-      "precision": "F16",
-      "size": 1441900448,
-      "sha256": "5414aea5536178726e8dca20cdfc91cfa3e5443a83a65c4d08acd1c5df65323f"
+      "attribution": "Fluid Speech Pro by FluidVoice",
+      "precision": "Q8_0",
+      "size": 940663968,
+      "sha256": "1b9c613fe3b058895885105e696c203a1a0b47c37eace80d18b51e20dcdc5ffd"
     },
     "diarization": {
       "file": "nemotron-3-diarization-f16.gguf",

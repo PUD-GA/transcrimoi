@@ -13,6 +13,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from transcrimoi.model_verification import remember_verified_model, verify_model
 from transcrimoi.storage import sha256_file, write_json
 
 
@@ -24,10 +25,12 @@ def download(model: dict, repository: str, revision: str, *, directory: Path | N
     target = (directory if directory is not None else ROOT / "models") / model["file"]
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
-        if target.stat().st_size == model["size"] and sha256_file(target) == model["sha256"]:
-            print(f"Vérifié : {target.name}", flush=True)
-            return
-        raise ValueError(f"Modèle existant non conforme : {target}. Le déplacer avant de réessayer.")
+        try:
+            verify_model(target, size=model["size"], sha256=model["sha256"], force=True)
+        except ValueError as error:
+            raise ValueError(f"Modèle existant non conforme : {target}. Le déplacer avant de réessayer.") from error
+        print(f"Vérifié : {target.name}", flush=True)
+        return
     url = f"https://huggingface.co/{repository}/resolve/{revision}/{model['file']}"
     tmp = target.with_suffix(".gguf.part")
     print(f"Téléchargement : {target.name} ({model['size'] / 1e6:.1f} Mo)", flush=True)
@@ -38,8 +41,16 @@ def download(model: dict, repository: str, revision: str, *, directory: Path | N
         if tmp.stat().st_size != model["size"] or sha256_file(tmp) != model["sha256"]:
             raise ValueError(f"Taille ou SHA-256 incorrect : {target.name}")
         os.replace(tmp, target)
+        remember_verified_model(target, size=model["size"], sha256=model["sha256"])
     finally:
         tmp.unlink(missing_ok=True)
+
+
+def download_locked_models(lock: dict) -> None:
+    """Chaque modèle peut remplacer le dépôt/révision communs du verrou."""
+    for model in lock["models"].values():
+        download(model, model.get("repository", lock["model_repository"]),
+                 model.get("revision", lock["model_revision"]))
 
 
 def apply_ggml_patches(source: Path) -> None:
@@ -76,7 +87,7 @@ def find_binary(build: Path, name: str, *, windows: bool | None = None) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--download-models", action="store_true", help="Télécharger les trois GGUF (environ 1,64 Go)")
+    parser.add_argument("--download-models", action="store_true", help="Télécharger les trois GGUF (environ 1,14 Go)")
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--jobs", type=int, default=4)
     args = parser.parse_args()
@@ -115,8 +126,7 @@ def main() -> None:
                          for name, path in binaries.items()},
         })
     if args.download_models:
-        for model in lock["models"].values():
-            download(model, lock["model_repository"], lock["model_revision"])
+        download_locked_models(lock)
 
 
 if __name__ == "__main__":

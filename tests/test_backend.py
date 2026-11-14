@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from tests.paths import EXPERIMENTS
 from transcrimoi.backend import Backend
@@ -48,17 +49,34 @@ class BackendTests(unittest.TestCase):
         backend = Backend.verified(self.root)
         self.assertEqual(backend.cli, self.root / "parakeet-cli")
 
-    def test_default_model_is_ultra_with_experiment_hash(self):
+    def test_default_model_is_fluid_with_frozen_experiment_hash(self):
         root = Path(__file__).resolve().parents[1]
         lock = json.loads((root / "backend.lock.json").read_text())
-        experiment = json.loads((EXPERIMENTS / "ultra-f16.lock.json").read_text())
-        self.assertEqual(lock["models"]["asr"]["checkpoint"], "moondream/parakeet-ultra")
-        for key in ("file", "size", "sha256"):
-            self.assertEqual(lock["models"]["asr"][key], experiment["model"][key])
-        self.assertNotEqual(experiment["baseline_model"]["sha256"], lock["models"]["asr"]["sha256"])
+        experiment = json.loads((EXPERIMENTS / "fluid-q8.lock.json").read_text())
+        model = lock["models"]["asr"]
+        self.assertEqual(model["checkpoint"], "FluidVoice-Labs/fluid-speech-pro")
+        self.assertEqual(model["repository"], experiment["model_repository"])
+        self.assertEqual(model["revision"], experiment["model_revision"])
+        for key in ("file", "size", "sha256", "precision", "attribution"):
+            self.assertEqual(model[key], experiment["model"][key])
+        self.assertNotEqual(experiment["baseline_model"]["sha256"], model["sha256"])
 
     def test_corrupt_model_is_rejected(self):
         (self.root / "models/asr.gguf").write_bytes(b"corrupt")
+        with self.assertRaises(ValueError):
+            Backend.verified(self.root)
+
+    def test_repeated_backend_checks_skip_only_unchanged_model_hashes(self):
+        with patch("transcrimoi.model_verification.sha256_file", wraps=sha256_file) as digest:
+            first = Backend.verified(self.root)
+            self.assertEqual(digest.call_count, 3)
+            second = Backend.verified(self.root)
+            self.assertEqual(digest.call_count, 3)
+            self.assertEqual(first.provenance, second.provenance)
+            Backend.verified(self.root, force_models=True)
+            self.assertEqual(digest.call_count, 6)
+        # Les binaires restent intégralement vérifiés, même avec les modèles en cache.
+        (self.root / "diarize").write_bytes(b"modified")
         with self.assertRaises(ValueError):
             Backend.verified(self.root)
 

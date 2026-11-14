@@ -1,6 +1,6 @@
 # Premier essai Photon sur CPU — résultat
 
-> Décision ultérieure : Ultra F16 GGUF est désormais le modèle par défaut du
+> Décision intermédiaire : Ultra F16 GGUF a été adopté comme modèle par défaut du
 > produit, **sans Photon ni Torch**. L’environnement Photon reste expérimental,
 > distinct de l’environnement de l’[interface Qt](interface-minimale.md).
 

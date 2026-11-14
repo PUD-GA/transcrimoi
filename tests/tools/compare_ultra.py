@@ -79,12 +79,13 @@ def main() -> None:
         from scripts.prepare_backend import download
         download(config["baseline_model"], config["model_repository"], config["model_revision"],
                  directory=EXPERIMENT_MODELS)
-        download(config["model"], config["model_repository"], config["model_revision"])
+        download(config["model"], config["model_repository"], config["model_revision"],
+                 directory=EXPERIMENT_MODELS)
     baseline = EXPERIMENT_MODELS / config["baseline_model"]["file"]
     if (baseline.stat().st_size != config["baseline_model"]["size"]
             or sha256_file(baseline) != config["baseline_model"]["sha256"]):
         raise ValueError("Modèle témoin v3 absent ou corrompu")
-    ultra = ROOT / "models" / config["model"]["file"]
+    ultra = EXPERIMENT_MODELS / config["model"]["file"]
     if ultra.stat().st_size != config["model"]["size"] or sha256_file(ultra) != config["model"]["sha256"]:
         raise ValueError("Ultra absent ou corrompu")
     source, cuts_path = ROOT / config["source"], ROOT / config["cuts"]

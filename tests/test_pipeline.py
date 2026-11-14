@@ -1,7 +1,7 @@
 from dataclasses import replace
 import unittest
 
-from transcrimoi.assignment import Segmentation, assign_words, resolve_contextual_speakers, segment_words
+from transcrimoi.assignment import Segmentation, assign_words, filter_export_words, resolve_contextual_speakers, segment_words
 from transcrimoi.schema import AssignedWord, Turn, Word, parse_asr, parse_diarization
 from transcrimoi.srt import parse_srt, render_srt
 
@@ -38,6 +38,27 @@ class SchemaTests(unittest.TestCase):
         for value in [-1, 8, True, "0"]:
             with self.subTest(value=value), self.assertRaises(ValueError):
                 parse_diarization({"segments": [{"speaker": value, "start": 0, "end": 1}]}, 2)
+
+
+class ExportFilterTests(unittest.TestCase):
+    def test_only_exact_unknown_markers_are_filtered(self):
+        texts = ["<unk>", "bonjour", "pré<unk>fixe", "<UNK>", "<noise>", "?", "<unk>."]
+        words = [Word(i, i + .5, text, .8) for i, text in enumerate(texts)]
+        kept, omitted = filter_export_words(words)
+        self.assertEqual([word.text for word in kept], texts[1:])
+        self.assertEqual(omitted, words[:1])
+        self.assertEqual([word.text for word in words], texts)
+        self.assertIs(kept[0], words[1])
+        self.assertEqual(omitted[0], Word(0, .5, "<unk>", .8))
+
+    def test_empty_and_all_unknown(self):
+        self.assertEqual(filter_export_words([]), ([], []))
+        words = [Word(0, .2, "<unk>"), Word(.5, .5, "<unk>")]
+        self.assertEqual(filter_export_words(words), ([], words))
+
+    def test_unknown_timestamps_are_still_validated_before_filtering(self):
+        with self.assertRaises(ValueError):
+            parse_asr({"text": "", "words": [{"w": "<unk>", "start": -1, "end": .2}]}, 1)
 
 
 class AssignmentTests(unittest.TestCase):

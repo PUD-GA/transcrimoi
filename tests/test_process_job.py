@@ -8,6 +8,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 from transcrimoi.job import Job, work_lock
 from transcrimoi.process import Cancelled, ProcessError, run_process
@@ -128,6 +129,44 @@ class JobTests(unittest.TestCase):
         self.job.run(self.source, self.root / "autre.srt", self.work)
         self.assertEqual([e["phase"] for e in self.events if e["status"] == "reused"],
                          ["audio", "asr", "diarization"])
+
+    def test_exact_unknown_markers_are_traced_without_modifying_native_output(self):
+        raw = {"text": "Oui.", "words": [{"w": "<unk>", "start": .1, "end": .2, "conf": .5},
+                                          {"w": "Oui.", "start": .6, "end": .8}]}
+        command = [sys.executable, "-c", f"print({json.dumps(raw)!r})"]
+        with patch.object(self.backend, "asr_command", return_value=command):
+            result = self.job.run(self.source, self.output, self.work)
+        original = (self.work / "asr.json").read_bytes()
+        self.assertEqual(json.loads(original), raw)
+        self.assertEqual(result["native_word_count"], 2)
+        self.assertEqual(result["omitted_token_count"], 1)
+        self.assertEqual(result["omitted_tokens"], [{"start": .1, "end": .2, "text": "<unk>",
+                          "confidence": .5, "reason": "native_unknown_token"}])
+        cues = parse_srt(self.output.read_text())
+        self.assertEqual([(cue.text, cue.speaker) for cue in cues], [("Oui.", 0)])
+        self.assertEqual(len(result["words"]), 1)
+        self.assertEqual(result["unknown_words"], 0)
+        self.assertEqual(self.events[-1]["omitted_token_count"], 1)
+        self.events.clear()
+        resumed = self.job.run(self.source, self.root / "second.srt", self.work)
+        self.assertEqual(resumed["omitted_tokens"], result["omitted_tokens"])
+        self.assertEqual((self.work / "asr.json").read_bytes(), original)
+        self.assertEqual([e["phase"] for e in self.events if e["status"] == "reused"],
+                         ["audio", "asr", "diarization"])
+
+    def test_only_unknown_markers_produce_empty_srt_with_audit(self):
+        raw = {"text": "", "words": [{"w": "<unk>", "start": .1, "end": .2}]}
+        with patch.object(self.backend, "asr_command", return_value=[sys.executable, "-c", f"print({json.dumps(raw)!r})"]):
+            result = self.job.run(self.source, self.output, self.work)
+        self.assertEqual(result["cues"], [])
+        self.assertEqual(result["omitted_token_count"], 1)
+        self.assertEqual(self.output.read_bytes(), b"")
+        self.assertEqual(json.loads((self.work / "result.json").read_text())["omitted_tokens"][0]["start"], .1)
+
+    def test_filter_policy_is_part_of_checkpoint_identity(self):
+        self.job.run(self.source, self.output, self.work)
+        with patch("transcrimoi.job.OMITTED_ASR_TOKENS", frozenset()), self.assertRaises(ValueError):
+            self.job.run(self.source, self.root / "other.srt", self.work)
 
     def test_failure_and_resume_completed_phases(self):
         self.backend.fail_diarization = True

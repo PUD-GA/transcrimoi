@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       native:
-        description: "Compiler le moteur et tester Ultra réel (télécharge ~1,64 Go par OS)"
+        description: "Compiler le moteur et tester Fluid réel (télécharge ~1,14 Go par OS)"
         type: boolean
         default: false
 
@@ -18,7 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-14]
+        # macos-15 cible Apple Silicon ; les images macOS 14 ont été retirées.
+        os: [ubuntu-22.04, windows-2022, macos-15]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
@@ -50,13 +51,13 @@ jobs:
         env:
           QT_QPA_PLATFORM: ${{ runner.os == 'Windows' && 'windows' || 'offscreen' }}
         run: python tests/tools/smoke_gui.py --preview-only --output-dir tests/runs/gui-preview
-      - name: Préparer le vrai moteur CPU et Ultra
+      - name: Préparer le vrai moteur CPU et Fluid
         if: github.event_name == 'workflow_dispatch' && inputs.native
         run: python scripts/prepare_backend.py --download-models --jobs 3
       - name: Tests natifs ciblés
         if: github.event_name == 'workflow_dispatch' && inputs.native
         run: ctest --test-dir build/native -C Release -R "^(test_sas_merge|test_vad_segmenter|cli_version_long)$" --output-on-failure
-      - name: Fenêtre → Ultra réel → SRT (silence synthétique)
+      - name: Fenêtre → Fluid réel → SRT (silence synthétique)
         if: github.event_name == 'workflow_dispatch' && inputs.native
         env:
           QT_QPA_PLATFORM: ${{ runner.os == 'Windows' && 'windows' || 'offscreen' }}

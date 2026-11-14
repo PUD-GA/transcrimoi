@@ -33,6 +33,9 @@ Sous Linux sans affichage, définir `QT_QPA_PLATFORM=offscreen`.
 La suite vérifie aussi les frontières de l’architecture, les règles `.gitignore`,
 la non-publication de fichiers privés déjà indexés et les chemins des expériences.
 Un corpus vide ne peut pas être figé comme une nouvelle référence par erreur.
+Les tests de vérification des modèles utilisent de petits fichiers factices : cache
+persistant, invalidation après changement, corruption, vérification forcée, cache
+inaccessible et téléchargement vérifié avant mise en cache.
 
 Les outils peuvent être lancés directement comme ci-dessus ou comme modules,
 par exemple `python -m tests.tools.check_repository`.
@@ -80,7 +83,7 @@ compris sous Windows.
 Après préparation du backend et de ses trois modèles :
 
 ```bash
-python tests/tools/run_corpus.py --threads 4 --output-dir tests/runs/synth-ultra-nouveau
+python tests/tools/run_corpus.py --threads 4 --output-dir tests/runs/synth-fluid-nouveau
 ```
 
 `--case 4Etudiants` limite l’essai à un fichier. Les sorties sont dans `srt/`, les
@@ -95,7 +98,7 @@ Tests natifs ciblés, après compilation :
 ctest --test-dir build/native -C Release -R '^(test_sas_merge|test_vad_segmenter|cli_version_long)$' --output-on-failure
 ```
 
-## Essai bout-en-bout de la fenêtre avec Ultra réel
+## Essai bout-en-bout de la fenêtre avec le modèle réel du produit
 
 ```bash
 python tests/tools/smoke_gui.py --output-dir tests/runs/gui-silence-nouveau
@@ -117,8 +120,8 @@ Ultra et son témoin v3, les quatre coupes et les facteurs de padding.
 python tests/tools/compare_ultra.py --download-model --output-dir tests/runs/wamatipsia/comparaison-nouvelle
 ```
 
-Le téléchargement place **v3 dans `tests/models/`**, tandis qu’Ultra reste partagé avec
-le produit dans `models/`. Il ne change pas `backend.lock.json` ni les anciens SRT.
+Le téléchargement place **v3 et Ultra dans `tests/models/`**, indépendamment du modèle
+Fluid du produit. Il ne change pas `backend.lock.json` ni les anciens SRT.
 Les coupes utilisent le même PCM et zéro ou 250 ms de silence de chaque côté, sans
 seconde VAD, dictionnaire, forçage de langue ou LLM. Les temps incluent le chargement
 natif ; ce ne sont pas des benchmarks isolés ni une mesure de qualité humaine.
@@ -126,6 +129,42 @@ natif ; ce ne sont pas des benchmarks isolés ni une mesure de qualité humaine.
 Les anciens rapports et extraits restent sous `tests/runs/wamatipsia/`. Le WAV source
 est dans `tests/sources/wamatipsia/WamaTipsIA.wav`, avec l’empreinte d’origine conservée.
 Voir le [rapport Ultra](../docs/essai-ultra-gguf.md) et le [diagnostic Murmure](../docs/diagnostic-murmure.md).
+
+## Expérience Ultra F16 / Fluid Speech Pro Q8
+
+Configuration figée : `tests/experiments/fluid-q8.lock.json` (révisions, tailles,
+SHA-256 des modèles, inventaire du corpus et coupes WamaTipsIA).
+Depuis l’adoption de Fluid, Ultra est conservé dans `tests/models/` ; Fluid est partagé
+avec le produit dans `models/` lorsqu’il est présent, sinon téléchargé dans `tests/models/`.
+L’expérience ne change pas le backend du produit, les anciens checkpoints ou les anciens SRT.
+Le [compte rendu du premier essai](../docs/essai-fluid-speech-pro.md) conserve ses résultats
+historiques et distingue la recommandation initiale de la décision utilisateur ultérieure.
+
+```bash
+python tests/tools/compare_fluid.py --download-model --suite smoke --output-dir tests/runs/fluid-smoke-nouveau
+python tests/tools/compare_fluid.py --suite all --output-dir tests/runs/fluid-comparison-nouvelle
+```
+
+`smoke` vérifie les 30 premières secondes du premier média synthétique avec les deux
+modèles. `all` compare les quatre médias synthétiques complets et les quatre extraits
+WamaTipsIA, sans padding. `corpus` et `wamatipsia` permettent de les exécuter séparément.
+Chaque dossier de sortie doit être nouveau ; les corpus locaux sont nécessaires.
+
+Les deux modèles utilisent le même pipeline CPU, quatre threads ASR, Silero, Nemotron
+et les mêmes règles d’attribution/segmentation. Les rapports locaux conservent les
+empreintes, les résultats JSON/SRT, les journaux, le texte des extraits et les temps.
+Sous Linux, GNU time mesure aussi le pic RSS du processus ASR seul ; ailleurs cette
+mesure reste `null`. Aucun mode « clean » n’est activé.
+
+Le WER porte sur les SRT synthétiques fournis, pas une référence humaine indépendante.
+Les extraits WamaTipsIA n’ont pas de WER faute de référence. La validation des
+horodatages est structurelle, pas une mesure de leur justesse. Une exécution par
+condition, Ultra toujours en premier : pas un benchmark statistique. La comparaison
+change à la fois le modèle et sa précision (Ultra F16 / Fluid Q8_0).
+Depuis la version 0.2.0, les deux modèles passent par le même filtrage ciblé de `<unk>`.
+Les nouveaux rapports enregistrent version, politique de filtrage, nombre de mots natifs
+et nombre d’omissions ; leurs scores SRT ne sont pas directement ceux du premier essai,
+antérieur à ce filtrage. Les JSON natifs restent intacts.
 
 ## Photon : archive expérimentale, pas dépendance produit
 

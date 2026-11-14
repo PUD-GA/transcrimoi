@@ -49,9 +49,38 @@ phrases, aux pauses de plus de 0,8 s ou près des limites de 15 s / 240 caractè
 Ces limites sont des heuristiques de travail, pas des normes SonalPi2. Un mot individuel
 n’est jamais tronqué. Les horodatages des mots d’origine restent dans le JSON interne.
 
-L’attribution choisit le plus grand recouvrement mot/parole. En l’absence de recouvrement,
-un rapprochement de 150 ms maximum est admis s’il désigne un seul locuteur ; sa raison
-est enregistrée. Une égalité reste indéterminée.
+Avant l’attribution, les tokens **exactement égaux à `<unk>`** (après retrait des
+espaces externes par le parseur) sont omis de la représentation destinée au SRT.
+Aucun filtrage générique de texte entre chevrons : `pré<unk>fixe`, `<UNK>`, `<unk>.`
+et les autres balises restent inchangés. Aucun mot de remplacement n’est inventé.
+Les sorties natives `asr.json` restent intactes. Dans `result.json`, `native_word_count`
+compte tous les tokens natifs ; `words` ne contient que les mots conservés après
+attribution ; `omitted_token_count` et `omitted_tokens` retracent les omissions avec
+leurs bornes, confiance éventuelle et raison `native_unknown_token`.
+Le compteur est affiché dans la fenêtre, la CLI et les événements JSON d’export.
+Un résultat ne contenant que des marqueurs omis produit un SRT vide avec un message
+« Aucun texte exportable après filtrage », pas une affirmation d’absence de parole.
+La politique de filtrage fait partie de la provenance et de l’identité de reprise.
+
+L’attribution des mots conservés se fait en deux passes :
+
+1. **Attribution temporelle directe** : choisir le plus grand recouvrement mot/parole.
+   En l’absence de recouvrement, un rapprochement de 150 ms maximum est admis s’il
+   désigne un seul locuteur. À cette étape, une égalité ou l’absence de candidat laisse
+   le mot indéterminé.
+2. **Résolution par contexte** : pour chaque groupe de mots encore indéterminés,
+   chercher les mots attribués précédent et suivant, hors ponctuation fermante. Si leurs
+   locuteurs sont identiques, retenir ce locuteur ; sinon, retenir le côté temporellement
+   le plus proche. **En cas d’égalité, retenir le locuteur précédent : c’est un choix
+   explicite du produit.** Si un seul côté est disponible, utiliser son locuteur.
+   Cette passe n’impose pas de distance maximale, contrairement au rapprochement
+   direct de 150 ms. Sans contexte attribué, les mots restent indéterminés.
+
+La ponctuation fermante encore indéterminée hérite du token lexical précédent lorsqu’il
+est attribué. La raison de l’attribution finale est conservée dans le JSON interne,
+notamment pour distinguer attribution directe et résolution par contexte. Le compteur
+« mots sans locuteur » porte sur le résultat après ces deux passes : zéro mot sans
+locuteur ne constitue pas une mesure de fiabilité des attributions.
 
 Les chevauchements temporels ne sont pas artificiellement décalés. Un mot de ponctuation
 isolé de durée nulle peut nécessiter un bloc minimal de 1 ms ; il n’est pas supprimé.

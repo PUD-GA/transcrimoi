@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Essai bout-en-bout de la fenêtre avec le vrai backend Ultra (sans Photon)."""
+"""Essai bout-en-bout de la fenêtre avec le vrai backend du produit (sans Photon)."""
 from __future__ import annotations
 
 import argparse

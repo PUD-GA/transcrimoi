@@ -19,6 +19,8 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     validate = commands.add_parser("validate-srt", help="Vérifier la structure et les préfixes d'un SRT")
     validate.add_argument("file", type=Path)
+    verify = commands.add_parser("verify-backend", help="Revérifier intégralement le moteur et les modèles (SHA-256)")
+    verify.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
     transcribe = commands.add_parser("transcribe", help="Transcrire avec le backend CPU préparé")
     transcribe.add_argument("source", type=Path)
     transcribe.add_argument("--output", "-o", required=True, type=Path)
@@ -34,6 +36,10 @@ def main(argv: list[str] | None = None) -> int:
             cues = parse_srt(args.file.read_text(encoding="utf-8-sig"))
             print(json.dumps({"blocks": len(cues), "speakers": sorted({c.speaker for c in cues if c.speaker is not None}),
                               "unattributed_blocks": sum(c.speaker is None for c in cues)}, ensure_ascii=False))
+            return 0
+        if args.command == "verify-backend":
+            Backend.verified(args.project_root.resolve(), force_models=True)
+            print("Moteur et modèles vérifiés intégralement (SHA-256).")
             return 0
         if args.output.exists() and not args.overwrite:
             raise FileExistsError(f"SRT existant, non écrasé : {args.output}")
@@ -56,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
         result = job.run(args.source, args.output, args.work_dir, overwrite=args.overwrite)
         if not args.json_events:
             print(f"{args.output} — {len(result['cues'])} blocs, {result['unknown_words']} mots sans locuteur")
+            if result["omitted_token_count"]:
+                print(f"{result['omitted_token_count']} marqueur(s) <unk> omis du SRT ; détails dans {args.work_dir / 'result.json'}")
         return 0
     except (Cancelled, KeyboardInterrupt):
         print("Traitement annulé ; phases validées conservées.", file=sys.stderr)

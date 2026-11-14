@@ -1,9 +1,9 @@
 # Plan de construction — transcrimoi, transcription locale vers SonalPi2
 
-**Version 2.3 — Ultra GGUF CPU et interface minimale Qt**  
+**Version 2.4 — Fluid Speech Pro Q8 CPU et filtrage ciblé des marqueurs**
 **Produit :** une application de bureau locale qui transforme un enregistrement en SRT importable dans SonalPi2.  
 **Principe :** transcrimoi transcrit et distingue les locuteurs ; SonalPi2 assure la relecture, la correction et le travail d’analyse.  
-**Statut :** Ultra F16 est désormais le modèle ASR par défaut. Une fenêtre PySide6/Qt a été ajoutée ; le parcours complet avec Ultra réel a été essayé sous Linux/WSL et Windows 11 sur silence et sur un extrait parlé. macOS reste à valider, avec une matrice CI prévue. Les essais antérieurs incluent WamaTipsIA (1 h 22 min 48 s). L’import des nouveaux résultats dans SonalPi2, la qualité globale, les entretiens de deux heures et les installateurs autonomes restent à qualifier. Voir aussi la [validation de l’interface](docs/interface-minimale.md). Voir les rapports [M0–M2](docs/validation-m1-m2.md), [Ultra GGUF](docs/essai-ultra-gguf.md), [Photon CPU](docs/essai-photon-cpu.md) et le [guide développeur](README.md).
+**Statut :** Fluid Speech Pro Q8_0 est le modèle ASR par défaut par choix utilisateur ; les tokens exactement égaux à `<unk>` sont désormais omis du SRT avec traçabilité. Les gains multilingues de notre version GGUF restent à qualifier. Une fenêtre PySide6/Qt a été ajoutée ; le parcours complet avec Ultra réel a été essayé sous Linux/WSL et Windows 11 sur silence et sur un extrait parlé. macOS reste à valider, avec une matrice CI prévue. Les essais antérieurs incluent WamaTipsIA (1 h 22 min 48 s). L’import des nouveaux résultats dans SonalPi2, la qualité globale, les entretiens de deux heures et les installateurs autonomes restent à qualifier. Voir aussi la [validation de l’interface](docs/interface-minimale.md). Voir les rapports [M0–M2](docs/validation-m1-m2.md), [Ultra GGUF](docs/essai-ultra-gguf.md), [Photon CPU](docs/essai-photon-cpu.md) et le [guide développeur](README.md).
 
 ## Organisation du dépôt
 
@@ -25,16 +25,27 @@ noScribe reste une référence éventuelle de qualité, pas une base applicative
 
 La simplification porte sur le produit et son intégration, pas sur la qualité du traitement des entretiens longs.
 
-### Conclusion provisoire des essais — Ultra GGUF retenu pour la suite
+### Historique — adoption initiale d’Ultra GGUF
 
-**Orientation : `moondream/parakeet-ultra` en GGUF avec `parakeet.cpp` / GGML, sur CPU, sans Photon ni Torch dans le produit distribué.**
+**Orientation initiale, remplacée par Fluid ci-dessous : `moondream/parakeet-ultra` en GGUF avec `parakeet.cpp` / GGML, sur CPU, sans Photon ni Torch dans le produit distribué.**
 
 - **Mélange français/anglais :** Ultra semble résoudre le défaut observé avec Parakeet v3 sur WamaTipsIA. Les quatre extraits comparés restent en français, avec ou sans ajout de silence. Le SRT complet produit avec Ultra, sans padding, ne présente plus ce mélange dans les passages contrôlés ; la recherche de marqueurs anglais courants sur ses 994 blocs n’en a pas retrouvé. Ce contrôle textuel ne remplace pas une écoute intégrale et ne garantit pas l’absence de toute erreur.
 - **Photon non nécessaire au produit :** sur le premier extrait de 27,372 s, Photon CPU et Ultra F16 GGUF produisent exactement le même texte. Ce résultat conforte le choix GGML, sans démontrer une parité générale des moteurs ni permettre de comparer directement leurs temps mesurés différemment.
 - **Périmètre technique maintenu :** conserver le contrôleur Python léger, les processus natifs, Silero, Nemotron F16 et la sortie SRT vers SonalPi2. Photon et ses dépendances ne servent que de référence expérimentale de développement ; aucune dépendance à Photon, au SDK Moondream ou à Torch n’est ajoutée au paquet utilisateur.
 - **Validation restante :** relire le SRT complet, vérifier son import et les attributions indéterminées dans SonalPi2, puis évaluer d’autres entretiens français et des CPU modestes avant de qualifier le choix. Le test de 1 h 22 ne valide pas encore la cible de deux heures.
 
-Les constats et les artefacts sont détaillés dans les rapports [Ultra GGUF](docs/essai-ultra-gguf.md) et [Photon CPU](docs/essai-photon-cpu.md). **Adoption explicite effectuée :** `backend.lock.json` référence Ultra F16 avec l’empreinte vérifiée lors de l’expérience. Le témoin v3 est figé séparément dans `tests/experiments/ultra-f16.lock.json`, pour que l’expérience historique reste une véritable comparaison. Les anciens résultats et checkpoints ne sont pas réécrits.
+Les constats et les artefacts sont détaillés dans les rapports [Ultra GGUF](docs/essai-ultra-gguf.md) et [Photon CPU](docs/essai-photon-cpu.md). **Adoption initiale :** Ultra F16 avait été figé avec l’empreinte vérifiée lors de l’expérience ; il est maintenant conservé dans `tests/models/`. Le témoin v3 est figé séparément dans `tests/experiments/ultra-f16.lock.json`, pour que l’expérience historique reste une véritable comparaison. Les anciens résultats et checkpoints ne sont pas réécrits.
+
+### Décision actuelle — Fluid Speech Pro Q8_0
+
+Le [premier essai Fluid Q8 / Ultra F16](docs/essai-fluid-speech-pro.md) utilise le même
+runtime CPU sans changer le produit. Fluid fonctionne et réduit le pic mémoire ASR,
+mais ne montre pas de gain de précision sur les quatre médias synthétiques français.
+Fluid Q8_0 est néanmoins adopté par choix utilisateur pour son potentiel multilingue
+et sa mémoire réduite, sans prétendre que ses benchmarks amont prouvent un gain dans
+notre runtime. Ultra reste le témoin expérimental. L’effet propre de la quantification
+n’est pas isolé ; Fluid F32 n’a pas été testé. Les poids Fluid viennent de leur dépôt
+GGUF officiel figé, tandis que Silero et Nemotron conservent leurs sources précédentes.
 
 ### Décisions retenues
 
@@ -43,7 +54,7 @@ Les constats et les artefacts sont détaillés dans les rapports [Ultra GGUF](do
 | Projet autonome nommé transcrimoi | Dépôt, noyau et petite interface propres ; pas de fork noScribe. |
 | Sortie utilisateur : SRT | Format obligatoire dès le premier prototype, et non après le pilote. |
 | Correction dans SonalPi2 | Aucun éditeur, contrat HTML ou aller-retour de corrections à construire. |
-| Ultra GGUF F16, modèle par défaut | Un seul modèle ASR cible, dérivé de Parakeet v3 ; v3 reste le témoin des premiers essais, pas un second moteur à proposer aux utilisateurs. |
+| Fluid Speech Pro GGUF Q8_0, modèle par défaut | Un seul modèle ASR cible ; Ultra F16 et v3 restent des témoins d’expérience, pas des moteurs supplémentaires dans l’interface. |
 | Nemotron-3-Diarization F16 | Référence initiale pour distinguer les locuteurs. |
 | Runtime natif `mudler/parakeet.cpp`, GGML/GGUF | Pas de pile Python d’inférence dans le paquet utilisateur. Capacités à vérifier sur un commit figé. |
 | Contrôleur Python et processus natifs séparés | Noyau testable sans interface, isolation des plantages et libération mémoire entre phases. |
@@ -130,7 +141,7 @@ Lancer les processus sans shell, avec des arguments séparés. Une phase n’est
 
 | Élément | Choix retenu provisoirement |
 |---|---|
-| ASR | `moondream/parakeet-ultra`, GGUF F16 comme référence de qualité ; évaluer Q8_0 du même checkpoint avant distribution, sans présumer sa vitesse ou sa qualité sur CPU. |
+| ASR | `FluidVoice-Labs/fluid-speech-pro`, GGUF officiel Q8_0 ; choix multilingue à qualifier sur nos propres corpus. |
 | Diarisation | `nvidia/Nemotron-3-Diarization`, GGUF F16. |
 | VAD | Silero dans le runtime natif, modèle distinct à versionner. |
 | Audio | FFmpeg avec les capacités nécessaires aux formats d’import. |
@@ -141,6 +152,14 @@ La même interface cible Windows, Linux et macOS. Les premiers essais de fenêtr
 Ne pas distribuer Photon, le SDK Moondream, Torch, Torchaudio, NeMo, Pyannote, Whisper, faster-whisper, CTranslate2 ou ONNX Runtime. Séparer les outils de conversion des modèles de l’environnement utilisateur. Ne pas reprendre les dépendances ou spécifications de packaging de noScribe.
 
 Figer le runtime, ses sous-modules, les modèles, leurs licences et leurs sommes de contrôle. Ne pas inclure de modèles supplémentaires sans usage.
+
+Vérifier intégralement les modèles par SHA-256 après téléchargement. Mémoriser la
+vérification réussie dans un cache local lié à l’empreinte attendue et aux caractéristiques
+du fichier ; avant chaque tâche, ne relire le contenu que si elles ont changé ou si le
+cache est absent/invalide. Sans cache inscriptible, conserver la vérification complète.
+La commande `python -m transcrimoi verify-backend` force le contrôle intégral.
+Les binaires restent vérifiés intégralement à chaque tâche. Ce compromis de performance
+n’est pas une protection contre une altération hostile du modèle et de son cache.
 
 ## 6. Traitement des entretiens longs
 
@@ -156,11 +175,17 @@ Utiliser la VAD et des marges pour découper près des pauses, avec une durée m
 
 Inclure « oui », « non », « hum » et les interruptions brèves dans les tests. Ne pas inventer des hésitations ou des mots non émis par l’ASR. Afficher « Reconnaissance multilingue automatique », sans prétendre qu’une langue est verrouillée ni proposer de faux sélecteur de français.
 
+Avant attribution et segmentation, omettre uniquement les tokens exactement égaux à
+`<unk>`. Conserver les JSON natifs, les temps et la raison des omissions dans le résultat ;
+signaler leur nombre dans la fenêtre et la CLI. Aucun remplacement inventé, aucun
+filtrage générique des balises ou des fragments de mots. La politique appartient à la
+provenance de reprise ; les anciens résultats ne sont pas réécrits.
+
 ### Diarisation et attribution
 
 Employer le chemin progressif avec cache continu de locuteurs exposé par la version retenue. Ne pas réinitialiser le cache à chaque fenêtre et ne pas supposer qu’un traitement intégral de deux heures tient en mémoire. Vérifier les fonctions et paramètres réellement utilisés.
 
-Attribuer les mots par recouvrement temporel avec les plages de parole. Tester les frontières, les égalités, l’absence de plage et les voix simultanées. Préférer une attribution indéterminée à une certitude artificielle. Préserver les changements de locuteur et les réponses courtes dans les blocs SRT.
+Attribuer d’abord les mots par recouvrement temporel avec les plages de parole, puis par proximité à 150 ms maximum si un seul locuteur convient. Résoudre ensuite les mots encore indéterminés par le contexte attribué précédent/suivant, sans distance maximale : même locuteur des deux côtés, sinon côté temporellement le plus proche, ou seul côté disponible. **En cas d’égalité, retenir le locuteur précédent : choix explicite du produit.** Sans contexte attribué, conserver l’indétermination. Enregistrer la raison de l’attribution finale ; une attribution par contexte n’est pas une certitude mesurée. Tester les frontières, les égalités, l’absence de plage et les voix simultanées. Préserver les changements de locuteur et les réponses courtes dans les blocs SRT. Les règles détaillées figurent dans le [contrat SRT](docs/contrat-srt.md#règles-de-génération).
 
 La cible de deux personnes n’est pas un réglage « exactement deux » tant que le moteur ne permet pas de l’imposer effectivement.
 
@@ -179,6 +204,7 @@ Le prototype conserve des modules simples plutôt qu’un ensemble de sous-paque
 | Module | Contenu |
 |---|---|
 | `transcrimoi/backend.py` | Vérification des manifests/modèles/binaires et commandes ASR/diarisation. |
+| `transcrimoi/model_verification.py` | Vérification SHA-256 des modèles et cache local des contrôles réussis. |
 | `transcrimoi/process.py` | Sous-processus natifs, arrêt de leur arbre et erreurs. |
 | `transcrimoi/job.py` | Conversion FFmpeg, orchestration, événements et reprise par phase. |
 | `transcrimoi/assignment.py` | Attribution des mots et segmentation. |
@@ -206,7 +232,7 @@ Pas de lecteur, de liste de segments ou de panneau de correction. La distinction
 
 Si le moteur ne fournit pas de progression mesurable, afficher une étape indéterminée plutôt qu’un pourcentage inventé. L’absence d’événements réguliers ne prouve pas un blocage.
 
-Le premier prototype utilise exclusivement le CPU et Ultra F16. Pas de sélecteur de langue, de modèle ou de nombre de locuteurs sans effet réel. Une seule tâche à la fois ; les champs sont désactivés pendant le traitement. Les erreurs détaillées et les journaux restent accessibles, sans panneau d’édition. Les messages d’erreur distinguent média illisible, modèle absent/corrompu, espace disque insuffisant et panne du moteur.
+Le prototype actuel utilise exclusivement le CPU et Fluid Speech Pro Q8_0. Pas de sélecteur de langue, de modèle ou de nombre de locuteurs sans effet réel. Une seule tâche à la fois ; les champs sont désactivés pendant le traitement. Les erreurs détaillées et les journaux restent accessibles, sans panneau d’édition. Les messages d’erreur distinguent média illisible, modèle absent/corrompu, espace disque insuffisant et panne du moteur.
 
 ## 9. Séquence de développement
 
@@ -302,7 +328,8 @@ Le prototype fige parakeet.cpp au commit `2eac2e77d9c7ef8899f7a86a46e693ac5ac1a5
 
 - [parakeet.cpp](https://github.com/mudler/parakeet.cpp), [CLI](https://github.com/mudler/parakeet.cpp/blob/master/docs/cli.md), [API C](https://github.com/mudler/parakeet.cpp/blob/master/docs/capi.md) et [diarisation](https://github.com/mudler/parakeet.cpp/blob/master/docs/diarization.md).
 - [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3), modèle des premiers essais et base d’Ultra.
-- [Parakeet Ultra](https://huggingface.co/moondream/parakeet-ultra), orientation ASR provisoire ; les résultats de sa fiche ne qualifient pas notre conversion GGUF sur CPU.
+- [Parakeet Ultra](https://huggingface.co/moondream/parakeet-ultra), ancien modèle du produit et témoin expérimental.
+- [Fluid Speech Pro GGUF](https://huggingface.co/FluidVoice-Labs/fluid-speech-pro-gguf), modèle actuel ; ses benchmarks amont ne qualifient pas nos usages multilingues sur CPU.
 - [Nemotron-3-Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization).
 - [Modèles GGUF mudler](https://huggingface.co/mudler/parakeet-cpp-gguf/tree/main).
 

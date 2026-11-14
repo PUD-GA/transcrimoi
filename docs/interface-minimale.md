@@ -1,4 +1,10 @@
-# Interface minimale — Ultra CPU, sans Photon
+# Interface minimale — CPU, sans Photon
+
+> **Version actuelle :** Fluid Speech Pro Q8_0 remplace Ultra par choix utilisateur.
+> Les tokens exactement égaux à `<unk>` sont omis avant attribution/segmentation,
+> tracés dans `result.json` et signalés à la fin, sans toucher aux sorties natives.
+> Les résultats Linux/Windows du tableau historique ci-dessous concernent Ultra ;
+> ils ne constituent pas une validation de Fluid sur Windows ou macOS.
 
 > Les résultats ci-dessous précèdent le rangement des tests. Les chemins de consultation
 > ont été actualisés ; les journaux et résultats historiques n’ont pas été réécrits.
@@ -24,17 +30,27 @@ annule les processus puis attend leur arrêt sans bloquer la boucle graphique.
 La fenêtre lance le contrôleur existant dans un thread Qt. FFmpeg, l’ASR et la
 diarisation restent des processus natifs séparés ; le noyau n’importe pas Qt.
 Les événements remontent par signaux, sans accès aux widgets depuis le thread de travail.
-Les empreintes des modèles et des binaires sont vérifiées avant chaque tâche.
+Les binaires sont vérifiés par SHA-256 avant chaque tâche. Pour les modèles, une
+vérification SHA-256 réussie est mémorisée à côté du fichier : les tâches suivantes
+contrôlent sa présence, sa taille, ses dates et son identité sans relire son contenu.
+Un changement ou un cache absent/invalide déclenche une nouvelle vérification complète.
+Après téléchargement, le contenu est toujours vérifié avant publication et mise en cache.
+`python -m transcrimoi verify-backend` force la relecture complète des modèles.
+Ce cache local est une optimisation, pas une protection contre une altération hostile ;
+s'il ne peut pas être écrit, l'application revérifie intégralement les modèles.
+Voir les [règles de vérification](../README.md#vérification-des-modèles).
 
 ## Modèle et environnement
 
-`backend.lock.json` adopte explicitement `moondream/parakeet-ultra` **GGUF F16**, avec
-le SHA-256 vérifié pendant l’expérience précédente. Silero, Nemotron et les règles
-actuelles d’attribution/segmentation restent utilisés. Aucun padding supplémentaire.
-Les anciens SRT et checkpoints ne sont pas réécrits.
+`backend.lock.json` référence désormais **Fluid Speech Pro GGUF Q8_0**, depuis le dépôt
+officiel FluidVoice-Labs figé et vérifié par SHA-256. Silero, Nemotron et les règles
+actuelles d’attribution/segmentation restent utilisés, avec filtrage ciblé de `<unk>`
+avant attribution. Aucun padding supplémentaire. Voir le [compte rendu Fluid](essai-fluid-speech-pro.md).
+Les anciens SRT et checkpoints ne sont pas réécrits ; la version et la politique de
+filtrage changent l’identité de reprise.
 
-L’expérience v3/Ultra conserve désormais son propre modèle témoin v3, indépendant
-du modèle par défaut : elle ne doit pas comparer Ultra à lui-même sous deux étiquettes.
+Les expériences conservent leurs témoins v3 et Ultra dans `tests/models/`, indépendants
+du modèle par défaut. Seuls Fluid, Silero et Nemotron sont nécessaires au produit.
 
 L’interface dépend uniquement de **PySide6-Essentials et Shiboken6**, sans WebEngine.
 L’environnement Linux propre `.venv-gui` contient ces deux paquets et transcrimoi,
@@ -157,7 +173,7 @@ explicitement ignorés lorsqu’il est absent.
 1. installation de Qt/FFmpeg et tests du noyau/de la fenêtre sans modèles ;
 2. capture de la fenêtre ;
 3. sur déclenchement manuel avec `native=true`, compilation du moteur, téléchargement
-   des modèles vérifiés et essai bout-en-bout du silence avec Ultra réel.
+   des modèles vérifiés et essai bout-en-bout du silence avec le modèle réel du produit.
 
 Ce workflow est fourni mais **n’a pas été exécuté ici sur GitHub**. Il ne remplace pas
 un essai d’usage sur un Mac. L’architecture réelle est enregistrée dans chaque rapport ;
