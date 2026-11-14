@@ -6,6 +6,19 @@ identité éditeur, ni notariés sur macOS. Leur installation sur machines propr
 remplace pas l’audit de redistribution des bibliothèques, de Qt et du build FFmpeg.
 Ne pas annoncer ces préversions comme des installateurs prêts à distribuer.
 
+## Première validation des paquets
+
+Le [build manuel avec packaging](https://github.com/PUD-GA/transcrimoi/actions/runs/43646231299)
+a réussi sur les trois OS. Les rapports du binaire gelé confirment Qt, FFmpeg et Fluid
+sur trois secondes de silence (zéro bloc) : macOS arm64, Windows AMD64 et Linux x86-64.
+Les artefacts `app-preview-*` pèsent environ 1,09 Go (macOS), 1,12 Go (Windows) et
+1,19 Go (Linux), modèles inclus. La suite de tests atteint 136 cas sous Linux local.
+
+Le paquet Linux local a également été extrait hors du dépôt et testé avec un `PATH`
+vide et sans environnement Python actif. Aucun cache n’est écrit dans ses ressources.
+Ces vérifications ne sont **pas** des essais sur machines propres, une qualification de
+la parole réelle dans les paquets, ni une autorisation de redistribution publique.
+
 ## Deux types d’artefacts GitHub
 
 - `test-report-OS` : captures, rapports JSON et journaux ; quelques dizaines de Ko.
