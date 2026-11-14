@@ -179,6 +179,18 @@ Ce workflow est fourni mais **n’a pas été exécuté ici sur GitHub**. Il ne 
 un essai d’usage sur un Mac. L’architecture réelle est enregistrée dans chaque rapport ;
 Apple Silicon et Mac Intel ne doivent pas être présumés qualifiés tous les deux.
 
+## Validation native Fluid et préversions
+
+Après les essais historiques ci-dessus, la
+[CI native Fluid](https://github.com/PUD-GA/transcrimoi/actions/runs/43644971974) a réussi
+sous Ubuntu, Windows et macOS Apple Silicon : compilation, tests CTest ciblés et
+fenêtre → Fluid réel → SRT vide sur silence. Ce n’est pas un essai d’usage complet sur Mac.
+
+Le workflow peut désormais fabriquer des préversions PyInstaller avec modèles inclus,
+et exécute leur diagnostic gelé avant archivage. Les caches des modèles vont dans le
+cache utilisateur, pas dans le bundle. Voir les [paquets autonomes](paquets-autonomes.md).
+Signature, notarisation, notices complètes et qualification sur machines propres restent ouvertes.
+
 ## Restant avant distribution
 
 - validation macOS, essais manuels sur les trois OS et sur ordinateurs modestes ;

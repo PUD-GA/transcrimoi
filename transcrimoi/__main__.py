@@ -11,6 +11,7 @@ import threading
 from .backend import Backend
 from .job import Job
 from .process import Cancelled
+from .runtime import project_root
 from .srt import parse_srt
 
 
@@ -20,12 +21,12 @@ def main(argv: list[str] | None = None) -> int:
     validate = commands.add_parser("validate-srt", help="Vérifier la structure et les préfixes d'un SRT")
     validate.add_argument("file", type=Path)
     verify = commands.add_parser("verify-backend", help="Revérifier intégralement le moteur et les modèles (SHA-256)")
-    verify.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
+    verify.add_argument("--project-root", type=Path, default=project_root())
     transcribe = commands.add_parser("transcribe", help="Transcrire avec le backend CPU préparé")
     transcribe.add_argument("source", type=Path)
     transcribe.add_argument("--output", "-o", required=True, type=Path)
     transcribe.add_argument("--work-dir", type=Path, required=True, help="Checkpoints et journaux, réutilisables")
-    transcribe.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1])
+    transcribe.add_argument("--project-root", type=Path, default=project_root())
     transcribe.add_argument("--threads", type=int, default=4, help="Threads ASR ; diarisation : défaut natif")
     transcribe.add_argument("--overwrite", action="store_true", help="Autoriser explicitement le remplacement du SRT")
     transcribe.add_argument("--json-events", action="store_true")

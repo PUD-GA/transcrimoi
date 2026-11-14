@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .storage import read_json, sha256_file, write_json
+from .runtime import model_cache_directory
+from .storage import fingerprint, read_json, sha256_file, write_json
 
 
 def _signature(path: Path, size: int, sha256: str) -> dict:
@@ -18,6 +19,9 @@ def _signature(path: Path, size: int, sha256: str) -> dict:
 
 
 def _cache_path(path: Path) -> Path:
+    directory = model_cache_directory()
+    if directory is not None:
+        return directory / f"{fingerprint(str(path.resolve()))}.json"
     return path.with_name(f".{path.name}.verified.json")
 
 

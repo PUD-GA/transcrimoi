@@ -22,6 +22,7 @@ from .assignment import OMITTED_ASR_TOKENS, Segmentation
 from .backend import Backend
 from .job import Job
 from .process import Cancelled
+from .runtime import project_root
 from .storage import fingerprint, sha256_file
 
 PHASES = {
@@ -395,7 +396,7 @@ class MainWindow(QMainWindow):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Interface locale transcrimoi — Fluid Speech Pro CPU")
-    parser.add_argument("--project-root", type=Path, default=Path(__file__).resolve().parents[1],
+    parser.add_argument("--project-root", type=Path, default=project_root(),
                         help="Dossier contenant backend.lock.json, build/ et models/")
     args = parser.parse_args(argv)
     app = QApplication.instance() or QApplication([sys.argv[0]])

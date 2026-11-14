@@ -1,7 +1,10 @@
 # Composants tiers — inventaire développeur
 
 Ce document n’est pas une autorisation de redistribution ni un avis juridique.
-Les notices complètes devront être assemblées dans le paquet final.
+Le packaging de préversion collecte un premier dossier `notices/` (modèles, runtime,
+licences disponibles des paquets Python et informations FFmpeg). Cette collecte n’est
+pas exhaustive et ne clôt pas les obligations de redistribution. Voir les
+[limites des préversions](paquets-autonomes.md#notices-et-distribution-restante).
 
 | Composant | Référence | Licence indiquée en amont |
 |---|---|---|
@@ -10,9 +13,14 @@ Les notices complètes devront être assemblées dans le paquet final.
 | Fluid Speech Pro Q8_0 | GGUF officiel FluidVoice-Labs, dérivé de Parakeet v3 et Ultra | CC-BY-4.0 ; attribution « Fluid Speech Pro by FluidVoice », références NVIDIA/Moondream et licence à conserver |
 | Nemotron-3-Diarization | Poids NVIDIA convertis en GGUF par mudler | OpenMDW 1.1 |
 | Silero VAD | Conversion GGUF mudler | MIT, copyright Silero Team |
-| FFmpeg | Exécutable système dans le prototype | Dépend de la configuration du build ; vérifier LGPL/GPL et codecs avant embarquement |
-| Python | Interpréteur système dans le prototype | PSF ; embarquement à préparer ultérieurement |
+| FFmpeg | Exécutable système en développement, copié avec ses dépendances détectées dans la préversion | Dépend de la configuration du build ; vérifier LGPL/GPL et codecs avant embarquement |
+| Python | Système en développement, embarqué par PyInstaller dans la préversion | PSF ; notices à vérifier dans le paquet final |
 | PySide6-Essentials / Shiboken6 / Qt | Interface optionnelle, versions dans les rapports de test | LGPLv3/GPLv3 ou licence commerciale selon les composants ; notices et obligations de redistribution à vérifier avant empaquetage |
+
+PyInstaller est une dépendance **de construction**, pas d’inférence : GPL avec exception
+pour les bundles ; sa licence et celles de son bootloader sont à conserver/vérifier.
+Les binaires liés collectés automatiquement, notamment les dépendances FFmpeg, doivent
+faire l’objet d’un inventaire de licences et de sources avant distribution publique.
 
 Les références exactes des trois GGUF, leur révision Hugging Face et leurs SHA-256
 sont dans [`backend.lock.json`](../backend.lock.json).

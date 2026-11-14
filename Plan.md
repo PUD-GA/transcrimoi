@@ -3,11 +3,11 @@
 **Version 2.4 — Fluid Speech Pro Q8 CPU et filtrage ciblé des marqueurs**
 **Produit :** une application de bureau locale qui transforme un enregistrement en SRT importable dans SonalPi2.  
 **Principe :** transcrimoi transcrit et distingue les locuteurs ; SonalPi2 assure la relecture, la correction et le travail d’analyse.  
-**Statut :** Fluid Speech Pro Q8_0 est le modèle ASR par défaut par choix utilisateur ; les tokens exactement égaux à `<unk>` sont désormais omis du SRT avec traçabilité. Les gains multilingues de notre version GGUF restent à qualifier. Une fenêtre PySide6/Qt a été ajoutée ; le parcours complet avec Ultra réel a été essayé sous Linux/WSL et Windows 11 sur silence et sur un extrait parlé. macOS reste à valider, avec une matrice CI prévue. Les essais antérieurs incluent WamaTipsIA (1 h 22 min 48 s). L’import des nouveaux résultats dans SonalPi2, la qualité globale, les entretiens de deux heures et les installateurs autonomes restent à qualifier. Voir aussi la [validation de l’interface](docs/interface-minimale.md). Voir les rapports [M0–M2](docs/validation-m1-m2.md), [Ultra GGUF](docs/essai-ultra-gguf.md), [Photon CPU](docs/essai-photon-cpu.md) et le [guide développeur](README.md).
+**Statut :** Fluid Speech Pro Q8_0 est le modèle ASR par défaut par choix utilisateur ; les tokens exactement égaux à `<unk>` sont désormais omis du SRT avec traçabilité. Les gains multilingues de notre version GGUF restent à qualifier. Une fenêtre PySide6/Qt a été ajoutée ; le parcours complet avec Ultra réel a été essayé sous Linux/WSL et Windows 11 sur silence et sur un extrait parlé. La CI native Fluid a depuis réussi sous Linux, Windows et macOS Apple Silicon sur silence ; les essais d’usage macOS restent à qualifier. Les essais antérieurs incluent WamaTipsIA (1 h 22 min 48 s). L’import des nouveaux résultats dans SonalPi2, la qualité globale, les entretiens de deux heures et les installateurs autonomes restent à qualifier. Voir aussi la [validation de l’interface](docs/interface-minimale.md). Voir les rapports [M0–M2](docs/validation-m1-m2.md), [Ultra GGUF](docs/essai-ultra-gguf.md), [Photon CPU](docs/essai-photon-cpu.md) et le [guide développeur](README.md).
 
 ## Organisation du dépôt
 
-Le produit reste dans `transcrimoi/` ; `scripts/` prépare son runtime. Les tests, leurs
+Le produit reste dans `transcrimoi/` ; `scripts/` prépare son runtime et ses préversions autonomes. Les tests, leurs
 outils, configurations d’expérience et petites fixtures sont regroupés dans `tests/`.
 Les corpus (synthétique, réel et WamaTipsIA), les modèles expérimentaux et les résultats
 sont respectivement dans `tests/sources/`, `tests/models/` et `tests/runs/`, ignorés par Git.
@@ -212,11 +212,20 @@ Le prototype conserve des modules simples plutôt qu’un ensemble de sous-paque
 | `transcrimoi/srt.py` | Lecture/export selon la fixture SonalPi2. |
 | `transcrimoi/storage.py` | Empreintes et écritures atomiques. |
 | `transcrimoi/gui.py` | Fenêtre Qt, sans inférence dans Python. |
+| `transcrimoi/runtime.py` | Emplacements source/gelés et cache utilisateur des modèles. |
+| `transcrimoi/desktop_check.py` | Diagnostic embarqué Qt → vrais modèles → silence. |
 | `transcrimoi/__main__.py` | CLI indépendante de Qt. |
 | `scripts/prepare_backend.py` | Préparation développeur du runtime figé. |
+| `scripts/build_desktop.py`, `scripts/transcrimoi.spec` | Préversions PyInstaller avec modèles, diagnostic et archives par OS. |
 | `tests/` | Tests, outils, petites références et configurations d’expérience ; données locales ignorées. |
 
 Le contrat interne conserve : provenance de la source et du moteur, paramètres, mots horodatés, plages de locuteurs avec chevauchements, attributions ambiguës, blocs calculés et phases achevées. Il ne devient pas un format d’édition ou un protocole de synchronisation avec SonalPi2.
+
+Les [préversions autonomes](docs/paquets-autonomes.md) sont construites manuellement
+via l’entrée `package` du workflow Desktop CPU. Les artefacts `app-preview-OS`
+contiennent l’application et ses modèles ; `test-report-OS` ne contient que les rapports.
+Le diagnostic du binaire gelé doit réussir avant archivage. Aucun installateur final,
+signature éditeur, notarisation ou validation exhaustive des licences n’est revendiqué.
 
 ## 8. Interface utilisateur
 

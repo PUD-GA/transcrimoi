@@ -8,8 +8,8 @@ La correction se fait dans SonalPi2 : transcrimoi n’embarque pas d’éditeur.
 - Une fenêtre PySide6/Qt, un média à la fois, annulation et reprise par phase.
 - **Fluid Speech Pro Q8_0**, Silero et Nemotron exécutés avec parakeet.cpp/GGML.
 - Aucun Photon, Torch ou SDK Moondream dans les dépendances du produit.
-- Socle essayé sous **Linux/WSL et Windows 11** avec Ultra ; adoption de Fluid et filtrage validés sous Linux/WSL. Windows et macOS restent à qualifier pour cette version.
-- Prototype développeur : les applications autonomes et installateurs restent à fabriquer.
+- Tests et pipeline natif Fluid sur silence validés en CI sous **Linux, Windows et macOS Apple Silicon** ; essais d’usage et machines propres restent à qualifier.
+- Préversions autonomes avec modèles via un build manuel ; installateurs signés et distribution finale restent à préparer.
 
 Les résultats et limites sont décrits dans la [validation de l’interface](docs/interface-minimale.md),
 le [contrat SRT](docs/contrat-srt.md) et le [plan](Plan.md).
@@ -23,7 +23,7 @@ ne constituent pas une validation de notre version GGUF Q8 sur ces langues.
 
 ```text
 transcrimoi/             Application : contrôleur, backend, SRT et interface
-scripts/                Préparation du runtime (pas les outils de test)
+scripts/                Préparation du runtime et packaging (pas les outils de test)
 backend.lock.json       Runtime et trois modèles du produit, versions et SHA-256
 pyproject.toml          Dépendances et points d’entrée de l’application
 MANIFEST.in             Contenu de l’archive source, sans données locales
@@ -138,8 +138,9 @@ Avant chaque tâche, l’application vérifie la présence et les caractéristiq
 (taille, dates de modification/changement et identité du fichier). Si elles correspondent
 à une vérification SHA-256 réussie, le contenu n’est pas relu. Un changement de fichier,
 d’empreinte attendue ou un cache absent/invalide déclenche une vérification complète.
-Les petits caches `.MODELE.gguf.verified.json` restent à côté des modèles, hors Git.
-Si ce dossier n’est pas inscriptible, les vérifications fonctionnent sans cache.
+En mode développeur, les petits caches `.MODELE.gguf.verified.json` restent à côté des
+modèles, hors Git. Dans une application gelée, ils vont dans le cache utilisateur,
+jamais dans le bundle. Si le cache n’est pas inscriptible, la vérification fonctionne sans cache.
 
 Ce raccourci détecte les changements ordinaires ; il ne remplace pas une vérification
 complète contre une altération dissimulée. Pour forcer cette dernière :
@@ -167,6 +168,20 @@ python -m transcrimoi transcribe chemin/entretien.mp3 \
 - `--overwrite` est requis pour remplacer un SRT ; ne pas écraser une copie corrigée.
 - Journaux : `ffmpeg.log`, `asr.log`, `diarization.log` dans le dossier de travail.
 
+## Préversions autonomes
+
+Les artefacts `test-report-OS` de la CI sont de petits rapports/captures, **pas des applications**.
+Dans Actions → **Desktop CPU** → **Run workflow**, activer `package` pour compiler,
+tester et produire un artefact `app-preview-OS` avec Python, Qt, FFmpeg, moteur et modèles.
+L’option implique les tests natifs. Les archives sont un `.app.zip` macOS, un ZIP Windows
+ou un `.tar.gz` Linux, avec taille et empreinte SHA-256 ; leur poids est de l’ordre du Go,
+pas de quelques Ko. Elles restent sept jours et aucune release n’est publiée.
+
+Ce sont des paquets de validation non signés pour distribution, pas des installateurs
+finaux. Consulter les [instructions, limites et notices](docs/paquets-autonomes.md).
+La signature/notarisation, l’audit des licences et les essais sur machines propres
+restent nécessaires avant distribution publique.
+
 ## Tests et préparation de GitHub
 
 ```bash
@@ -182,8 +197,9 @@ Ce contrôle ne remplace pas une relecture des fichiers ni un outil de détectio
 
 Les tests de fenêtre demandent Qt et FFmpeg, mais pas de modèle. Les essais avec de
 vrais modèles, le corpus privé et les expériences sont documentés dans [tests/README.md](tests/README.md).
-Le workflow `.github/workflows/desktop.yml` prévoit les trois OS ; il n’a pas été exécuté
-ici sur GitHub et ne constitue pas encore une validation macOS.
+Le workflow `.github/workflows/desktop.yml` teste les trois OS. La
+[validation native Fluid](https://github.com/PUD-GA/transcrimoi/actions/runs/43644971974)
+a réussi sur les trois ; son silence synthétique ne remplace pas un essai d’usage sur Mac.
 
 ## Limites avant distribution
 
@@ -192,7 +208,7 @@ ici sur GitHub et ne constitue pas encore une validation macOS.
 - La vidéo de 1 h 22 a été traitée, sans qualification humaine globale de la qualité.
 - La VAD native charge encore l’audio complet en mémoire.
 - Vérifier les décalages audio/vidéo, chevauchements, bruits et fichiers sans parole.
-- Fabriquer les paquets autonomes, assembler les notices et choisir la licence du projet.
+- Qualifier les préversions autonomes, fabriquer les installateurs signés, compléter les notices et choisir la licence du projet.
 
 Aucune dépendance à SonalPi2 ou noScribe. Respecter les licences du runtime, des modèles,
 de Qt et de FFmpeg : [composants tiers](docs/composants-tiers.md).

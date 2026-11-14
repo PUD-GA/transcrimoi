@@ -9,6 +9,10 @@ on:
         description: "Compiler le moteur et tester Fluid réel (télécharge ~1,14 Go par OS)"
         type: boolean
         default: false
+      package:
+        description: "Fabriquer une préversion autonome avec modèles (implique native ; non signée pour distribution)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -21,7 +25,7 @@ jobs:
         # macos-15 cible Apple Silicon ; les images macOS 14 ont été retirées.
         os: [ubuntu-22.04, windows-2022, macos-15]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       QT_QPA_PLATFORM: offscreen
       PYTHONUTF8: "1"
@@ -52,25 +56,45 @@ jobs:
           QT_QPA_PLATFORM: ${{ runner.os == 'Windows' && 'windows' || 'offscreen' }}
         run: python tests/tools/smoke_gui.py --preview-only --output-dir tests/runs/gui-preview
       - name: Préparer le vrai moteur CPU et Fluid
-        if: github.event_name == 'workflow_dispatch' && inputs.native
+        if: github.event_name == 'workflow_dispatch' && (inputs.native || inputs.package)
         run: python scripts/prepare_backend.py --download-models --jobs 3
       - name: Tests natifs ciblés
-        if: github.event_name == 'workflow_dispatch' && inputs.native
+        if: github.event_name == 'workflow_dispatch' && (inputs.native || inputs.package)
         run: ctest --test-dir build/native -C Release -R "^(test_sas_merge|test_vad_segmenter|cli_version_long)$" --output-on-failure
       - name: Fenêtre → Fluid réel → SRT (silence synthétique)
-        if: github.event_name == 'workflow_dispatch' && inputs.native
+        if: github.event_name == 'workflow_dispatch' && (inputs.native || inputs.package)
         env:
           QT_QPA_PLATFORM: ${{ runner.os == 'Windows' && 'windows' || 'offscreen' }}
         run: python tests/tools/smoke_gui.py --output-dir tests/runs/gui-native --timeout 300
+      - name: Installer les outils de packaging
+        if: github.event_name == 'workflow_dispatch' && inputs.package
+        run: python -m pip install -e ".[gui,package]"
+      - name: Construire et tester la préversion autonome (modèles inclus)
+        if: github.event_name == 'workflow_dispatch' && inputs.package
+        env:
+          QT_QPA_PLATFORM: ${{ runner.os == 'Windows' && 'windows' || 'offscreen' }}
+        run: python scripts/build_desktop.py
+      - name: Préversion autonome (pas un rapport de test)
+        if: github.event_name == 'workflow_dispatch' && inputs.package && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-preview-${{ matrix.os }}
+          path: dist/desktop/*
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
       - name: Rapports et captures (pas de média utilisateur)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-${{ matrix.os }}
+          name: test-report-${{ matrix.os }}
           path: |
             tests/runs/gui-preview/*.png
             tests/runs/gui-preview/report.json
             tests/runs/gui-native/*.png
             tests/runs/gui-native/report.json
             tests/runs/gui-native/work/**/*.log
+            build/desktop/self-test/*.png
+            build/desktop/self-test/report.json
+            build/desktop/self-test.log
           if-no-files-found: ignore

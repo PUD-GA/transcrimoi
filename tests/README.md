@@ -40,6 +40,18 @@ inaccessible et téléchargement vérifié avant mise en cache.
 Les outils peuvent être lancés directement comme ci-dessus ou comme modules,
 par exemple `python -m tests.tools.check_repository`.
 
+## Tester une préversion autonome
+
+`tests/test_desktop_package.py` vérifie sans poids réels ni PyInstaller les emplacements
+source/gelés, l’absence de cache dans le bundle, la sélection des seuls modèles déclarés,
+les empreintes finales et les archives. Le diagnostic embarqué `--self-test` ouvre Qt et
+traite du silence avec le vrai runtime ; il est lancé automatiquement avant l’archivage.
+
+Le workflow manuel **Desktop CPU** avec `native=true` valide le moteur ; `package=true`
+ajoute les builds autonomes et implique `native`. Les petits artefacts `test-report-OS`
+ne sont jamais des applications. Les vrais paquets se trouvent dans `app-preview-OS`.
+Voir les [instructions des préversions](../docs/paquets-autonomes.md).
+
 ## Vérifier les fichiers avant GitHub
 
 ```bash
@@ -215,3 +227,6 @@ ont été contrôlés avant/après déplacement. Aucun fichier n’a été suppr
 Le workflow CI est dans `.github/workflows/desktop.yml`. Il utilise seulement des données
 synthétiques créées à l’exécution, sauf déclenchement explicite des essais natifs avec modèles.
 Aucun entretien utilisateur ne doit être publié comme artefact CI.
+La [validation native Fluid sur les trois OS](https://github.com/PUD-GA/transcrimoi/actions/runs/43644971974)
+a réussi (compilation, CTest et silence depuis la fenêtre) ; elle ne remplace pas les
+qualifications humaines et sur machines propres.

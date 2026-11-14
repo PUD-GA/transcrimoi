@@ -2,7 +2,7 @@
 include .gitignore README.md Plan.md backend.lock.json
 recursive-include docs *.md
 recursive-include .github/workflows *.yml
-recursive-include scripts *.py
+recursive-include scripts *.py *.spec
 include tests/*.py tests/README.md
 recursive-include tests/tools *.py
 recursive-include tests/fixtures *.json
