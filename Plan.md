@@ -1,7 +1,7 @@
 # Plan de construction — transcrimoi, transcription locale vers SonalPi2
 
-**Version 2.4 — Fluid Speech Pro Q8 CPU et filtrage ciblé des marqueurs**
-**Produit :** une application de bureau locale qui transforme un enregistrement en SRT importable dans SonalPi2.  
+**Version 2.5 — Fluid Q8 CPU et neuf formats de restitution**
+**Produit :** une application de bureau locale de transcription, SRT SonalPi2 par défaut et huit autres restitutions inspirées de Tadddam.
 **Principe :** transcrimoi transcrit et distingue les locuteurs ; SonalPi2 assure la relecture, la correction et le travail d’analyse.  
 **Statut :** Fluid Speech Pro Q8_0 est le modèle ASR par défaut par choix utilisateur ; les tokens exactement égaux à `<unk>` sont désormais omis du SRT avec traçabilité. Les gains multilingues de notre version GGUF restent à qualifier. Une fenêtre PySide6/Qt a été ajoutée ; le parcours complet avec Ultra réel a été essayé sous Linux/WSL et Windows 11 sur silence et sur un extrait parlé. La CI native Fluid a depuis réussi sous Linux, Windows et macOS Apple Silicon sur silence ; les essais d’usage macOS restent à qualifier. Les essais antérieurs incluent WamaTipsIA (1 h 22 min 48 s). L’import des nouveaux résultats dans SonalPi2, la qualité globale, les entretiens de deux heures et les installateurs autonomes restent à qualifier. Voir aussi la [validation de l’interface](docs/interface-minimale.md). Voir les rapports [M0–M2](docs/validation-m1-m2.md), [Ultra GGUF](docs/essai-ultra-gguf.md), [Photon CPU](docs/essai-photon-cpu.md) et le [guide développeur](README.md).
 
@@ -17,7 +17,12 @@ Les rapports rédigés restent dans `docs/`. Voir le [guide des tests](tests/REA
 
 Le parcours cible est :
 
-**Choisir un audio ou une vidéo → lancer le traitement → enregistrer le SRT → l’importer dans SonalPi2.**
+**Choisir un audio ou une vidéo → choisir le format → lancer le traitement → enregistrer le document → l’ouvrir dans l’outil cible.**
+
+Le parcours SRT SonalPi2 reste le défaut et conserve son contrat. À la demande de
+l’utilisateur, la version 0.3.0 ajoute les [neuf formats proposés par Tadddam](docs/formats-export.md),
+sans reprendre son code ni son moteur. Le JSON interne peut être réexporté en CLI sans
+nouvelle inférence ; le choix d’export ne change pas l’identité des phases natives.
 
 Il n’y a pas d’éditeur dans transcrimoi : ni lecteur audio synchronisé, ni correction de texte, ni renommage ou réattribution manuelle des locuteurs. Ces fonctions appartiennent à SonalPi2.
 
@@ -52,7 +57,7 @@ GGUF officiel figé, tandis que Silero et Nemotron conservent leurs sources pré
 | Décision | Conséquence |
 |---|---|
 | Projet autonome nommé transcrimoi | Dépôt, noyau et petite interface propres ; pas de fork noScribe. |
-| Sortie utilisateur : SRT | Format obligatoire dès le premier prototype, et non après le pilote. |
+| SRT SonalPi2 par défaut, neuf restitutions | Conserver le contrat SRT ; ajouter texte, tabulations, NVivo, ELAN tabulé, SRT simple et WebVTT. |
 | Correction dans SonalPi2 | Aucun éditeur, contrat HTML ou aller-retour de corrections à construire. |
 | Fluid Speech Pro GGUF Q8_0, modèle par défaut | Un seul modèle ASR cible ; Ultra F16 et v3 restent des témoins d’expérience, pas des moteurs supplémentaires dans l’interface. |
 | Nemotron-3-Diarization F16 | Référence initiale pour distinguer les locuteurs. |
@@ -71,12 +76,12 @@ GGUF officiel figé, tandis que Silero et Nemotron conservent leurs sources pré
 - Produire un SRT UTF-8 directement importable dans SonalPi2, avec une convention de locuteurs validée.
 - Afficher l’étape en cours, la progression lorsqu’elle est disponible et les erreurs utiles.
 - Annuler proprement ; récupérer les phases déjà achevées après interruption.
-- Ne jamais écraser silencieusement un SRT existant.
+- Ne jamais écraser silencieusement un document existant, quel que soit le format.
 - Fonctionner réseau coupé une fois les composants installés.
 
 ### Après le pilote
 
-File de plusieurs fichiers, reprise au milieu d’une phase, réglages avancés de performance, autres formats d’export seulement si un besoin réel apparaît.
+File de plusieurs fichiers, reprise au milieu d’une phase et réglages avancés de performance. Le besoin d’autres formats a été exprimé : les neuf conventions Tadddam font désormais partie du périmètre, sans DOCX/XLSX ni export EAF (XML).
 
 ### Hors périmètre
 
@@ -112,20 +117,20 @@ Si les locuteurs ne sont pas récupérés, ne pas présenter ce point comme rés
 - Aucun décalage artificiel des temps pour masquer des paroles simultanées. Le SRT ne permet pas de restituer les mots que l’ASR n’a pas reconnus.
 - Écriture dans un temporaire puis publication atomique du fichier final après validation.
 
-Le SRT est le livrable utilisateur. Un JSON interne conserve les résultats détaillés pour la reprise et la régénération ; SonalPi2 n’a pas à le lire.
+Le SRT SonalPi2 reste le livrable par défaut ; les autres formats de restitution utilisent les mêmes blocs internes. Le JSON conserve les résultats détaillés pour la reprise et le réexport, sans devenir un éditeur ni un protocole de synchronisation.
 
 ## 4. Architecture minimale
 
-**Interface minimale → contrôleur Python → FFmpeg et processus natifs → mots et plages de locuteurs → attribution → export SRT.**
+**Interface minimale → contrôleur Python → FFmpeg et processus natifs → mots et plages de locuteurs → attribution → export choisi.**
 
 | Composant | Responsabilité |
 |---|---|
-| Interface | Choix du média, destination SRT, démarrage, progression, annulation et accès au fichier produit. |
+| Interface | Choix du média, format et destination, démarrage, progression, annulation et accès au fichier produit. |
 | Contrôleur autonome | État de la tâche, orchestration, sauvegardes par phase et erreurs. |
 | FFmpeg embarqué | Conversion locale de l’audio de travail. |
 | Adaptateur natif | Lancement de Parakeet/VAD et de Nemotron ; normalisation des sorties. |
 | Attribution et segmentation | Associer les mots aux locuteurs puis construire les blocs à exporter. |
-| Exporteur SRT | Appliquer le contrat validé avec SonalPi2. |
+| Exports | Appliquer le contrat SonalPi2 ou une autre des neuf restitutions, sans changer l’inférence. |
 
 Les phases lourdes sont exécutées successivement pour ne pas garder les modèles simultanément en mémoire : conversion, transcription, diarisation, attribution et export. Le noyau n’importe aucun module d’interface.
 
@@ -210,6 +215,7 @@ Le prototype conserve des modules simples plutôt qu’un ensemble de sous-paque
 | `transcrimoi/assignment.py` | Attribution des mots et segmentation. |
 | `transcrimoi/schema.py` | Contrat interne versionné et validation. |
 | `transcrimoi/srt.py` | Lecture/export selon la fixture SonalPi2. |
+| `transcrimoi/exports.py` | Neuf restitutions, regroupement texte par locuteur et chargement des résultats réexportables. |
 | `transcrimoi/storage.py` | Empreintes et écritures atomiques. |
 | `transcrimoi/gui.py` | Fenêtre Qt, sans inférence dans Python. |
 | `transcrimoi/runtime.py` | Emplacements source/gelés et cache utilisateur des modèles. |
@@ -232,10 +238,10 @@ signature éditeur, notarisation ou validation exhaustive des licences n’est r
 Une seule fenêtre suffit :
 
 1. **Fichier audio ou vidéo**.
-2. **Destination du SRT**, proposée à côté de la source si possible.
+2. **Format de sortie et destination**, proposés à côté de la source si possible.
 3. **Transcrire**.
 4. Étape en cours, progression disponible et bouton **Annuler**.
-5. À la fin : **Afficher le SRT dans le dossier** et indication « À importer dans SonalPi2 ».
+5. À la fin : **Ouvrir le dossier du résultat**, avec indication d’import SonalPi2 pour le format par défaut.
 
 Pas de lecteur, de liste de segments ou de panneau de correction. La distinction des locuteurs est active dans le parcours cible ; un mode sans diarisation n’est ajouté que s’il répond à un besoin concret.
 

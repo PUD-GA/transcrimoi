@@ -1,11 +1,81 @@
 # transcrimoi
 
-Transcription et diarisation **locales sur CPU** d’un média vers un **SRT pour SonalPi2**.
-La correction se fait dans SonalPi2 : transcrimoi n’embarque pas d’éditeur.
+## Objectif
+
+transcrimoi est conçu pour réaliser la **transcription et la diarisation sur une machine
+modeste, uniquement avec son CPU**, sans GPU, compte utilisateur ni envoi du média vers
+un service distant. Il transforme un fichier audio ou vidéo en document texte ou en
+sous-titres, en distinguant les locuteurs. Neuf formats sont proposés ; le **SRT pour
+SonalPi2 reste le choix par défaut**.
+
+Tout le traitement est local et hors ligne une fois l’application installée. La
+correction se fait ensuite dans l’outil choisi : transcrimoi n’embarque pas d’éditeur.
+Les performances sur les ordinateurs les plus modestes restent à mesurer pendant le
+pilote.
+
+## Installation actuelle
+
+Les paquets actuels sont des **préversions autonomes d’environ 1,1 à 1,2 Go**. Ils
+contiennent l’application, les modèles, FFmpeg et le moteur CPU : il n’est pas nécessaire
+d’installer Python, Torch, CUDA ou FFmpeg séparément. Télécharger le paquet correspondant
+à la machine, puis suivre la procédure ci-dessous.
+
+### Windows — x86-64
+
+1. Télécharger `transcrimoi-preview-windows-x86_64.zip`.
+2. Extraire ce ZIP une seule fois.
+3. Dans le dossier extrait, lancer `Transcrimoi.exe` en conservant `_internal` à côté.
+
+### Linux — x86-64
+
+1. Télécharger l’artefact Linux et l’extraire.
+2. Extraire ensuite `transcrimoi-preview-…-linux-x86_64.tar.gz` afin de préserver les
+   permissions des exécutables.
+3. Ouvrir le dossier `transcrimoi`, puis lancer `./transcrimoi`.
+
+### macOS — Apple Silicon
+
+1. Télécharger l’artefact macOS et l’extraire.
+2. Extraire ensuite `transcrimoi-preview-…-macos-arm64.app.zip`, qui préserve la structure
+   de l’application, puis déplacer `transcrimoi.app` dans `Applications` si souhaité.
+3. Ouvrir l’application. La préversion n’étant pas encore notariée, macOS peut demander
+   de confirmer manuellement son ouverture dans les réglages de sécurité.
+
+Ces préversions ne sont pas encore des installateurs signés. Le paquet macOS actuel ne
+prend pas en charge les Mac Intel et la compatibilité des processeurs x86 sans AVX2 reste
+à qualifier. Les paquets peuvent être générés depuis **GitHub Actions → Desktop CPU**
+avec l’option `package`, ou fournis directement aux testeurs. Voir les
+[instructions détaillées et limites](docs/paquets-autonomes.md).
+
+## Langues
+
+Le modèle Fluid Speech Pro annonce la prise en charge de **25 langues européennes**, avec
+détection automatique de la langue : allemand, anglais, bulgare, croate, danois,
+espagnol, estonien, finnois, français, grec, hongrois, italien, letton, lituanien,
+maltais, néerlandais, polonais, portugais, roumain, russe, slovaque, slovène, suédois,
+tchèque et ukrainien.
+
+Cette liste provient de la
+[fiche du modèle GGUF figé](https://huggingface.co/FluidVoice-Labs/fluid-speech-pro-gguf/blob/fee970d9ac83f6d236632d39b67cbec12f5a9020/README.md).
+La version actuelle de transcrimoi a surtout été évaluée en français : il faut encore
+qualifier concrètement les autres langues, accents et conditions d’enregistrement.
+
+## Stack technique
+
+- **Interface et orchestration :** Python 3.11+ et PySide6/Qt.
+- **Préparation audio et vidéo :** FFmpeg, avec conversion locale vers le format de travail.
+- **Reconnaissance vocale :** Fluid Speech Pro Q8_0 exécuté sur CPU.
+- **Détection de parole :** Silero VAD.
+- **Diarisation :** NVIDIA Nemotron-3-Diarization.
+- **Moteur natif :** parakeet.cpp et GGML, sans serveur d’inférence, Torch ou CUDA.
+- **Reprise et traçabilité :** checkpoints et résultats JSON locaux entre les phases.
+- **Distribution :** paquets autonomes construits avec PyInstaller pour Windows, Linux
+  et macOS.
 
 ## État actuel
 
 - Une fenêtre PySide6/Qt, un média à la fois, annulation et reprise par phase.
+- Neuf formats de sortie inspirés de Tadddam : texte brut, variantes avec locuteurs/temps, exports tabulés, ELAN tabulé, SRT SonalPi2, SRT simple et WebVTT.
 - **Fluid Speech Pro Q8_0**, Silero et Nemotron exécutés avec parakeet.cpp/GGML.
 - Aucun Photon, Torch ou SDK Moondream dans les dépendances du produit.
 - Tests et pipeline natif Fluid sur silence validés en CI sous **Linux, Windows et macOS Apple Silicon** ; essais d’usage et machines propres restent à qualifier.
@@ -22,7 +92,7 @@ ne constituent pas une validation de notre version GGUF Q8 sur ces langues.
 ## Organisation du projet
 
 ```text
-transcrimoi/             Application : contrôleur, backend, SRT et interface
+transcrimoi/             Application : contrôleur, backend, exports et interface
 scripts/                Préparation du runtime et packaging (pas les outils de test)
 backend.lock.json       Runtime et trois modèles du produit, versions et SHA-256
 pyproject.toml          Dépendances et points d’entrée de l’application
@@ -51,7 +121,7 @@ Le dossier `tests/sources/` désigne les **médias de test**, pas le code de l�
 Le paquet distribué ne contient que les modules `transcrimoi` ; les outils de test ne
 sont jamais importés par le produit. Voir le [guide des tests](tests/README.md).
 
-## Préparer et lancer le prototype
+## Développement depuis les sources
 
 Prérequis développeur : **Python ≥ 3.11**, Git, CMake, compilateur C/C++ et FFmpeg dans le PATH.
 Sous Windows : outils C++ de Visual Studio ; sous macOS : outils de compilation Xcode.
@@ -105,7 +175,7 @@ L’interface choisit automatiquement une nouvelle identité de travail.
 
 ## Utilisation
 
-Choisir ou déposer un média, choisir le SRT de destination et cliquer **Transcrire**.
+Choisir ou déposer un média, choisir le **Format de sortie**, sa destination et cliquer **Transcrire**.
 La destination proposée évite les fichiers existants ; la fenêtre ne permet pas de les écraser.
 L’étape en cours et le temps écoulé sont affichés, sans pourcentage fictif.
 
@@ -114,13 +184,35 @@ compatibles ; une phase native interrompue repart du début. Les checkpoints/jou
 restent dans le dossier de données local Qt de l’application, accessible par le bouton
 des journaux. Ils peuvent être volumineux et ne sont pas supprimés automatiquement.
 
-À la fin, importer manuellement le SRT dans SonalPi2. Les identifiants de locuteurs
+À la fin, importer le SRT SonalPi2 ou ouvrir le document dans l’outil correspondant.
+Les [neuf formats et leurs conventions](docs/formats-export.md) sont détaillés séparément.
+Les identifiants de locuteurs
 sont propres à chaque transcription, pas des identités persistantes entre entretiens.
 Les mots non attribués directement sont résolus par le contexte temporel, sans distance
 maximale ; en cas d’égalité, le locuteur précédent est retenu par choix explicite.
 Les blocs restant sans locuteur après cette résolution n’ont pas de préfixe ; leur import
 reste à qualifier. Le nombre de mots sans locuteur n’est pas une mesure de confiance.
 Voir les [règles d’attribution](docs/contrat-srt.md#règles-de-génération).
+
+### Autres formats et réexport
+
+SRT SonalPi2 reste le défaut. Choisir **SRT simple** ou **WebVTT** supprime les étiquettes
+de locuteur du document, pas la diarisation du pipeline. Les formats de texte avec
+locuteurs regroupent les blocs consécutifs d’un même locuteur. Les formats à trois
+colonnes et ELAN sont des exports tabulés, pas des documents propriétaires ; leur
+import reste à qualifier dans les logiciels cibles.
+
+Un changement de format seul permet de réutiliser les phases déjà validées dans la
+fenêtre. Pour réexporter un résultat existant sans modèle ni nouvelle inférence :
+
+```bash
+python -m transcrimoi export chemin/travail/result.json \
+  --output chemin/entretien-elan.tsv --format elan
+```
+
+La version 0.3.0 conserve les anciens résultats. Sa commande `export` peut lire les
+`result.json` de la version 0.2.0 ; relancer `transcribe` avec une nouvelle version
+demande en revanche un nouveau dossier de travail.
 
 ### Marqueurs non reconnus
 
@@ -161,18 +253,19 @@ python -m transcrimoi transcribe chemin/entretien.mp3 \
   --output chemin/resultat.srt --work-dir chemin/travail --threads 4
 ```
 
-- `--json-events` : événements par étape.
+- `--format` : `sonal-srt` (défaut), `txt`, `speaker-txt`, `speaker-tsv`, `timed-txt`, `nvivo`, `elan`, `vtt` ou `srt`.
+- `--json-events` : événements par étape, format inclus dans l’événement final d’export.
 - `Ctrl+C` : annulation, phases validées conservées.
 - Même média, configuration et dossier de travail : reprise des phases compatibles.
 - Un changement de modèle, version, source ou paramètres demande un nouveau dossier de travail.
-- `--overwrite` est requis pour remplacer un SRT ; ne pas écraser une copie corrigée.
+- `--overwrite` est requis pour remplacer un document ; ne pas écraser une copie corrigée.
 - Journaux : `ffmpeg.log`, `asr.log`, `diarization.log` dans le dossier de travail.
 
 ## Préversions autonomes
 
 Les artefacts `test-report-OS` de la CI sont de petits rapports/captures, **pas des applications**.
 Dans Actions → **Desktop CPU** → **Run workflow**, activer `package` pour compiler,
-tester et produire un artefact `app-preview-OS` avec Python, Qt, FFmpeg, moteur et modèles.
+tester et produire un artefact `transcrimoi-preview-OS` avec Python, Qt, FFmpeg, moteur et modèles.
 L’option implique les tests natifs. Les archives sont un `.app.zip` macOS, un ZIP Windows
 ou un `.tar.gz` Linux, avec taille et empreinte SHA-256 ; leur poids est de l’ordre du Go,
 pas de quelques Ko. Elles restent sept jours et aucune release n’est publiée.
@@ -191,7 +284,7 @@ python tests/tools/check_repository.py --list
 
 Le second contrôle vérifie les fichiers publiables **sans initialiser Git dans le projet**.
 Si un dépôt existe, il détecte aussi les fichiers déjà indexés malgré `.gitignore`.
-Les corpus, transcriptions, résultats, modèles, environnements, certificats et fichiers
+Les corpus, transcriptions (dont TXT/TSV), résultats, modèles, environnements, certificats et fichiers
 `.env` sont exclus. Les petites références JSON et les README des dossiers locaux restent partageables.
 Ce contrôle ne remplace pas une relecture des fichiers ni un outil de détection de secrets.
 

@@ -17,9 +17,9 @@ from .assignment import (
     resolve_contextual_speakers, segment_words,
 )
 from .backend import Backend
+from .exports import DEFAULT_FORMAT, export_document, validate_output
 from .process import Cancelled, run_process
 from .schema import SCHEMA_VERSION, parse_asr, parse_diarization
-from .srt import export_srt
 from .storage import fingerprint, read_json, sha256_file, write_json
 
 
@@ -88,14 +88,14 @@ class Job:
         if self.cancel.is_set():
             raise Cancelled("Traitement annulé")
 
-    def run(self, source: Path, output: Path, work: Path, *, overwrite: bool = False) -> dict:
+    def run(self, source: Path, output: Path, work: Path, *, overwrite: bool = False,
+            output_format: str = DEFAULT_FORMAT) -> dict:
         source, output, work = source.resolve(), output.resolve(), work.resolve()
         if not source.is_file():
             raise FileNotFoundError(f"Média absent : {source}")
-        if output.suffix.lower() != ".srt" or output == source:
-            raise ValueError("La destination doit être un SRT distinct de la source")
+        validate_output(source, output, output_format)
         if output.exists() and not overwrite:
-            raise FileExistsError(f"SRT existant, non écrasé : {output}")
+            raise FileExistsError(f"Document existant, non écrasé : {output}")
         # La source ne doit pas être l'un de nos artefacts de travail.
         if source.is_relative_to(work):
             raise ValueError("Choisir un dossier de travail ne contenant pas la source")
@@ -192,11 +192,12 @@ class Job:
                 if sha256_file(source) != provenance["source_sha256"]:
                     raise ValueError("Le média source a changé pendant le traitement")
                 self.emit("export", "started")
-                export_srt(output, cues, overwrite=overwrite)
-                state.update(status="completed", output=str(output), output_sha256=sha256_file(output))
+                export_document(output, cues, output_format, overwrite=overwrite)
+                state.update(status="completed", output=str(output), output_format=output_format,
+                             output_sha256=sha256_file(output))
                 write_json(state_path, state)
                 self.emit("export", "completed", path=str(output), cues=len(cues), unknown_words=unknown,
-                          omitted_token_count=len(omitted))
+                          omitted_token_count=len(omitted), output_format=output_format)
                 return result
             except BaseException as error:
                 state.update(status="cancelled" if isinstance(error, (Cancelled, KeyboardInterrupt)) else "failed",

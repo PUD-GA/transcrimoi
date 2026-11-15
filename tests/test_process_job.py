@@ -10,7 +10,9 @@ import time
 import unittest
 from unittest.mock import patch
 
+from transcrimoi.exports import FORMATS, render_export
 from transcrimoi.job import Job, work_lock
+from transcrimoi.schema import Cue
 from transcrimoi.process import Cancelled, ProcessError, run_process
 from transcrimoi.srt import parse_srt
 
@@ -167,6 +169,29 @@ class JobTests(unittest.TestCase):
         self.job.run(self.source, self.output, self.work)
         with patch("transcrimoi.job.OMITTED_ASR_TOKENS", frozenset()), self.assertRaises(ValueError):
             self.job.run(self.source, self.root / "other.srt", self.work)
+
+    def test_every_format_reuses_native_phases_and_preserves_neutral_result(self):
+        initial = self.job.run(self.source, self.output, self.work)
+        with patch.object(self.backend, "asr_command", side_effect=AssertionError("ASR relancé")), \
+                patch.object(self.backend, "diarization_command", side_effect=AssertionError("Diarisation relancée")):
+            for item in FORMATS:
+                with self.subTest(format=item.id):
+                    self.events.clear()
+                    output = self.root / (item.id + item.suffix)
+                    result = self.job.run(self.source, output, self.work, output_format=item.id)
+                    self.assertEqual(result, initial)
+                    self.assertEqual(output.read_text(encoding="utf-8"),
+                                     render_export([Cue(**cue) for cue in result["cues"]], item.id))
+                    self.assertEqual([e["phase"] for e in self.events if e["status"] == "reused"],
+                                     ["audio", "asr", "diarization"])
+                    self.assertEqual(self.events[-1]["output_format"], item.id)
+                    self.assertEqual(json.loads((self.work / "state.json").read_text())["output_format"], item.id)
+
+    def test_wrong_export_extension_is_rejected_before_processing(self):
+        with self.assertRaises(ValueError):
+            self.job.run(self.source, self.output, self.work, output_format="txt")
+        self.assertFalse(self.work.exists())
+        self.assertFalse(self.output.exists())
 
     def test_failure_and_resume_completed_phases(self):
         self.backend.fail_diarization = True

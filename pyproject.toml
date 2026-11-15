@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "transcrimoi"
-version = "0.2.0"
-description = "Transcription locale et diarisation vers un SRT pour SonalPi2"
+version = "0.3.0"
+description = "Transcription et diarisation locales avec exports texte, tabulés, SRT et WebVTT"
 requires-python = ">=3.11"
 dependencies = []
 

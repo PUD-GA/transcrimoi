@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from scripts.build_desktop import archive_bundle, artifact_name, stage_runtime, stamp_manifest
+from transcrimoi import __version__
 from transcrimoi.model_verification import verify_model
 from transcrimoi.runtime import model_cache_directory, project_root
 from transcrimoi.storage import read_json, sha256_file, write_json
@@ -55,7 +56,7 @@ class PackageTests(unittest.TestCase):
     def test_artifact_name_contains_version_os_and_architecture(self):
         with patch("scripts.build_desktop.platform.system", return_value="Windows"), \
                 patch("scripts.build_desktop.platform.machine", return_value="AMD64"):
-            self.assertEqual(artifact_name(), "transcrimoi-preview-0.2.0-windows-x86_64")
+            self.assertEqual(artifact_name(), f"transcrimoi-preview-{__version__}-windows-x86_64")
 
     def test_staging_copies_only_declared_runtime_not_private_data(self):
         with tempfile.TemporaryDirectory() as tmp:

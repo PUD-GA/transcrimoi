@@ -11,8 +11,8 @@ Ne pas annoncer ces préversions comme des installateurs prêts à distribuer.
 Le [build manuel avec packaging](https://github.com/PUD-GA/transcrimoi/actions/runs/43646231299)
 a réussi sur les trois OS. Les rapports du binaire gelé confirment Qt, FFmpeg et Fluid
 sur trois secondes de silence (zéro bloc) : macOS arm64, Windows AMD64 et Linux x86-64.
-Les artefacts `app-preview-*` pèsent environ 1,09 Go (macOS), 1,12 Go (Windows) et
-1,19 Go (Linux), modèles inclus. La suite de tests atteint 136 cas sous Linux local.
+Les artefacts `transcrimoi-preview-*` pèsent environ 1,09 Go (macOS), 1,12 Go
+(Windows) et 1,19 Go (Linux), modèles inclus. La suite de tests atteint 136 cas sous Linux local.
 
 Le paquet Linux local a également été extrait hors du dépôt et testé avec un `PATH`
 vide et sans environnement Python actif. Aucun cache n’est écrit dans ses ressources.
@@ -23,11 +23,13 @@ la parole réelle dans les paquets, ni une autorisation de redistribution publiq
 
 - `test-report-OS` : captures, rapports JSON et journaux ; quelques dizaines de Ko.
   Ce n’est **pas une application**.
-- `app-preview-OS` : archive autonome, empreinte SHA-256 et rapport de diagnostic.
-  Elle contient Python, Qt, FFmpeg, les deux exécutables natifs et les trois modèles
-  du produit (environ 1,14 Go de poids seuls). Aucune dépendance Torch/Photon ni
-  besoin de Python, compilateur, réseau ou FFmpeg préinstallés pour l’utiliser.
-  Les bibliothèques système de l’OS restent nécessaires.
+- `transcrimoi-preview-OS` : application autonome avec Python, Qt, FFmpeg, les deux
+  exécutables natifs et les trois modèles du produit (environ 1,14 Go de poids seuls).
+  Sous Windows, le contenu de l’application est envoyé directement dans l’artefact :
+  le ZIP téléchargé ne contient donc plus un second ZIP. Linux conserve un `.tar.gz`
+  pour les permissions et macOS un `.app.zip` pour la structure du bundle. Aucune
+  dépendance Torch/Photon ni besoin de Python, compilateur, réseau ou FFmpeg
+  préinstallés pour l’utiliser. Les bibliothèques système de l’OS restent nécessaires.
 
 Les artefacts restent sept jours pour les préversions volumineuses ; aucune release
 GitHub n’est créée. Ne pas confondre un artefact de tests avec le paquet de l’application.
@@ -45,16 +47,16 @@ ni packaging. Un paquet n’est archivé qu’après réussite du diagnostic du 
 
 ## Ouvrir une préversion
 
-Extraire d’abord l’artefact GitHub, puis l’archive d’application qu’il contient :
+Ouvrir le paquet correspondant à la plateforme :
 
-- **Windows x86-64** : extraire tout le ZIP dans un dossier local, lancer
-  `transcrimoi/transcrimoi.exe`. Conserver `_internal/` à côté du programme.
-- **macOS Apple Silicon** : extraire le `.app.zip` en préservant les liens symboliques,
+- **Windows x86-64** : extraire une seule fois le ZIP téléchargé, puis lancer
+  `Transcrimoi.exe`. Conserver `_internal/` à côté du programme.
+- **macOS Apple Silicon** : extraire l’artefact GitHub, puis le `.app.zip` en préservant les liens symboliques,
   puis ouvrir `transcrimoi.app`. Finder peut refuser cette application non notariée ;
   pour un essai de confiance, utiliser la procédure d’autorisation manuelle de macOS.
   Aucune désactivation globale de Gatekeeper n’est nécessaire ni recommandée.
   Cette matrice ne produit pas de paquet Mac Intel.
-- **Linux x86-64** : extraire le `.tar.gz` en conservant les permissions et les liens,
+- **Linux x86-64** : extraire l’artefact GitHub, puis le `.tar.gz` en conservant les permissions et les liens,
   lancer `transcrimoi/transcrimoi`. Le paquet CI est construit sur Ubuntu 22.04 ; la
   compatibilité avec d’autres distributions, glibc, affichages et CPU reste à tester.
 

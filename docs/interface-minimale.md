@@ -10,20 +10,29 @@
 > ont été actualisés ; les journaux et résultats historiques n’ont pas été réécrits.
 > Voir l’[organisation actuelle et les commandes de test](../tests/README.md).
 
+## Formats ajoutés en 0.3.0
+
+Un sélecteur propose les [neuf restitutions inspirées de Tadddam](formats-export.md),
+avec adaptation de l’extension et du dialogue d’enregistrement. SRT SonalPi2 reste le
+défaut. Le format ne change pas l’identité des phases natives ; un nouveau lancement
+avec un autre format réutilise les phases compatibles. La CLI peut aussi réexporter
+`result.json` sans aucune inférence. Un essai réel des neuf sorties a été effectué sous
+Linux/WSL ; les imports des formats tabulés dans leurs logiciels cibles restent à qualifier.
+
 ## Périmètre livré
 
 Une seule fenêtre Qt (`transcrimoi/gui.py`) :
 
 - choix ou dépôt d’un seul média audio/vidéo ;
-- destination SRT proposée à côté du média, avec un nom libre si un SRT existe ;
+- choix du format de sortie, destination adaptée proposée à côté du média et nom libre si le document existe ;
 - bouton Transcrire, étape en cours, indicateur indéterminé et temps écoulé ;
 - Annuler, puis reprise des phases compatibles en relançant le même média ;
-- accès au dossier du SRT, aux journaux et aux détails d’une erreur ;
+- accès au dossier du résultat, aux journaux et aux détails d’une erreur ;
 - message explicite si aucune parole n’a été détectée.
 
 Aucun éditeur, lecteur, sélecteur de langue, de nombre de locuteurs ou de modèle.
 La fenêtre n’expose aucune option d’écrasement. Le noyau protège aussi la publication
-contre la création concurrente d’un SRT par une autre application.
+contre la création concurrente d’un document par une autre application.
 Pendant le traitement, les champs sont désactivés. La fermeture demande confirmation,
 annule les processus puis attend leur arrêt sans bloquer la boucle graphique.
 
@@ -104,7 +113,7 @@ sont pris en charge.
 
 Les checkpoints et journaux sont conservés sous le dossier de données **local** Qt de
 l’application (`AppLocalDataLocation/work`). L’identité dépend du contenu du média,
-du moteur, des modèles et des paramètres, pas du nom du SRT. Les phases interrompues
+du moteur, des modèles et des paramètres, pas du nom ou du format de sortie. Les phases interrompues
 repartent du début ; celles qui sont achevées et compatibles sont réutilisées.
 Ce dossier peut devenir volumineux et n’est pas nettoyé automatiquement.
 

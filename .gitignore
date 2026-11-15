@@ -73,6 +73,13 @@ coverage.xml
 *.[mM][pP][gG]
 *.[sS][rR][tT]
 *.[vV][tT][tT]
+*.[tT][sS][vV]
+*.[tT][xX][tT]
+# Exceptions de code/licence, pas de transcriptions.
+!requirements*.txt
+!LICENSE*.txt
+!LICENCE*.txt
+!CMakeLists.txt
 *.[aA][sS][sS]
 
 # Archives : peuvent contenir un corpus ou un paquet local

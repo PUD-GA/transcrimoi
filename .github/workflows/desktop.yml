@@ -74,11 +74,20 @@ jobs:
         env:
           QT_QPA_PLATFORM: ${{ runner.os == 'Windows' && 'windows' || 'offscreen' }}
         run: python scripts/build_desktop.py
-      - name: Préversion autonome (pas un rapport de test)
-        if: github.event_name == 'workflow_dispatch' && inputs.package && success()
+      - name: Préversion autonome Windows — un seul ZIP à extraire
+        if: github.event_name == 'workflow_dispatch' && inputs.package && success() && runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: app-preview-${{ matrix.os }}
+          name: transcrimoi-preview-windows-x86_64
+          path: build/desktop/dist/transcrimoi
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+      - name: Préversion autonome Linux/macOS — métadonnées préservées
+        if: github.event_name == 'workflow_dispatch' && inputs.package && success() && runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: transcrimoi-preview-${{ matrix.os }}
           path: dist/desktop/*
           compression-level: 0
           retention-days: 7

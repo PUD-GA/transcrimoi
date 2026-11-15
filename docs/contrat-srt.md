@@ -1,5 +1,9 @@
 # Contrat SRT SonalPi2 — référence M0
 
+Ce contrat décrit le format `sonal-srt`, inchangé et toujours proposé par défaut.
+Les [autres exports](formats-export.md) ont leurs propres conventions ; le choix `srt`
+sans locuteur n’est pas présenté comme équivalent à l’import SonalPi2.
+
 ## Source d’autorité
 
 L’utilisateur a fourni le corpus synthétique, désormais dans `tests/sources/synth/`,

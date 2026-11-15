@@ -1,5 +1,6 @@
 from contextlib import redirect_stderr, redirect_stdout
 import io
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -63,8 +64,45 @@ class CliTests(unittest.TestCase):
                 with redirect_stdout(out), redirect_stderr(io.StringIO()):
                     code = main(["transcribe", "source.wav", "-o", str(output), "--work-dir", str(work)])
             self.assertEqual(code, 0)
-            self.assertIn("2 marqueur(s) <unk> omis du SRT", out.getvalue())
+            self.assertIn("2 marqueur(s) <unk> omis de l’export", out.getvalue())
             self.assertIn(str(work / "result.json"), out.getvalue())
+
+    def test_export_saved_result_needs_no_backend_or_job(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, output = Path(tmp) / "result.json", Path(tmp) / "result.tsv"
+            source.write_text(json.dumps({"schema_version": 1, "cues": [
+                {"start": .5, "end": 1, "text": "Bonjour.", "speaker": 2}]}), encoding="utf-8")
+            original = source.read_bytes()
+            with patch("transcrimoi.__main__.Backend.verified") as backend, patch("transcrimoi.__main__.Job") as job:
+                with redirect_stdout(io.StringIO()):
+                    code = main(["export", str(source), "-o", str(output), "--format", "nvivo"])
+                backend.assert_not_called()
+                job.assert_not_called()
+            self.assertEqual(code, 0)
+            self.assertEqual(output.read_text(), "0.500\tSPEAKER_02\tBonjour.\n")
+            self.assertEqual(source.read_bytes(), original)
+
+    def test_export_saved_result_refuses_overwrite_and_invalid_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, output = Path(tmp) / "result.json", Path(tmp) / "result.vtt"
+            source.write_text('{"schema_version": 1, "cues": []}')
+            output.write_text("corrections")
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(main(["export", str(source), "-o", str(output), "--format", "vtt"]), 1)
+            self.assertEqual(output.read_text(), "corrections")
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(main(["export", str(source), "-o", str(output), "--format", "vtt", "--overwrite"]), 0)
+            self.assertEqual(output.read_text(), "WEBVTT\n\n")
+            source.write_text('{"schema_version": 1, "cues": [{}]}')
+            missing = Path(tmp) / "invalid.txt"
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(main(["export", str(source), "-o", str(missing), "--format", "txt"]), 1)
+            self.assertFalse(missing.exists())
+
+    def test_transcribe_rejects_wrong_format_extension_before_backend_loading(self):
+        with patch("transcrimoi.__main__.Backend.verified") as backend, redirect_stderr(io.StringIO()):
+            self.assertEqual(main(["transcribe", "absent.wav", "-o", "out.srt", "--work-dir", "work", "--format", "vtt"]), 1)
+            backend.assert_not_called()
 
     def test_existing_output_refused_before_backend_loading(self):
         with tempfile.TemporaryDirectory() as tmp:

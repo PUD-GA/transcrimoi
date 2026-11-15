@@ -67,6 +67,7 @@ def collect_notices(root: Path, stage: Path, ffmpeg: Path) -> None:
     notices.mkdir()
     for source, name in ((root / "docs/paquets-autonomes.md", "LISEZ-MOI.md"),
                          (root / "docs/composants-tiers.md", "composants-tiers.md"),
+                         (root / "docs/formats-export.md", "FORMATS.md"),
                          (root / "vendor/parakeet.cpp/LICENSE", "parakeet.cpp-LICENSE"),
                          (root / "vendor/parakeet.cpp/third_party/ggml/LICENSE", "ggml-LICENSE")):
         shutil.copy2(source, notices / name)
@@ -157,7 +158,7 @@ def main() -> None:
     else:
         bundle = work / "dist/transcrimoi"
         runtime = bundle / "_internal"
-        executable = bundle / ("transcrimoi.exe" if os.name == "nt" else "transcrimoi")
+        executable = bundle / ("Transcrimoi.exe" if os.name == "nt" else "transcrimoi")
     stamp_manifest(runtime)
     if sys.platform == "darwin":
         # Ressources modifiées après la signature PyInstaller : resignature de

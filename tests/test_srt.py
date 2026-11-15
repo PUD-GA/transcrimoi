@@ -66,6 +66,7 @@ class SrtTests(unittest.TestCase):
         cases = [replace(self.cue, start=-0.1), replace(self.cue, end=0.7),
                  replace(self.cue, start=float("nan")), replace(self.cue, end=float("inf")),
                  replace(self.cue, text=""), replace(self.cue, text="a\n\nb"),
+                 replace(self.cue, text="a\n \t\nb"),
                  replace(self.cue, speaker=-1), replace(self.cue, speaker=True),
                  replace(self.cue, start=1.0001, end=1.0002)]
         for cue in cases:

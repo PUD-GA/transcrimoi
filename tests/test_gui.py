@@ -11,6 +11,8 @@ import unittest
 from unittest.mock import patch
 import wave
 
+from transcrimoi.exports import FORMATS
+
 HAS_QT = importlib.util.find_spec("PySide6") is not None
 if HAS_QT:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -90,6 +92,10 @@ class GuiTests(unittest.TestCase):
         return self.outcomes[-1]
 
     def test_initial_state_and_suggestion(self):
+        self.assertEqual(self.window.windowTitle(), "Transcrimoi")
+        self.assertIn("Conception TIPS-IA", self.window.subtitle.text())
+        self.assertNotIn("Fluid Speech", self.window.subtitle.text())
+        self.assertIn("github.com/PUD-GA/transcrimoi", self.window.repository_link.text())
         self.assertEqual(Path(self.window.output_edit.text()), self.source.with_suffix(".srt"))
         self.assertTrue(self.window.start_button.isEnabled())
         self.assertFalse(self.window.cancel_button.isEnabled())
@@ -139,6 +145,82 @@ class GuiTests(unittest.TestCase):
         self.assertTrue(Path(result["output"]).samefile(output))
         self.assertTrue((actual / output.name).is_file())
         self.assertFalse(self.source.with_suffix(".srt").exists())
+
+    def select_format(self, format_id):
+        index = self.window.format_combo.findData(format_id)
+        self.assertGreaterEqual(index, 0)
+        self.window.format_combo.setCurrentIndex(index)
+
+    def test_format_selection_adjusts_extension_and_preserves_custom_directory(self):
+        self.assertEqual(self.window.format_combo.count(), 9)
+        self.assertEqual(self.window.output_format, "sonal-srt")
+        self.window.output_edit.setText(str(self.root / "choisi" / "mon résultat.srt"))
+        self.select_format("vtt")
+        self.assertEqual(Path(self.window.output_edit.text()), self.root / "choisi" / "mon résultat.vtt")
+        self.select_format("nvivo")
+        self.assertEqual(Path(self.window.output_edit.text()), self.root / "choisi" / "mon résultat.txt")
+        self.window.output_edit.setText(str(self.root / "table.tsv"))
+        self.select_format("elan")
+        self.assertEqual(Path(self.window.output_edit.text()), self.root / "table.tsv")
+
+    def test_format_change_does_not_overwrite_an_existing_document(self):
+        existing = self.source.with_suffix(".txt")
+        existing.write_text("corrigé", encoding="utf-8")
+        self.select_format("txt")
+        self.assertEqual(Path(self.window.output_edit.text()), self.source.with_name(self.source.stem + " (2).txt"))
+        result = self.start_and_wait()
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(existing.read_text(encoding="utf-8"), "corrigé")
+
+    def test_each_format_exports_and_reuses_the_same_work(self):
+        work = None
+        events = []
+        original = self.window.on_event
+        def record(event):
+            events.append(event)
+            original(event)
+        self.window.on_event = record
+        for item in FORMATS:
+            with self.subTest(format=item.id):
+                self.select_format(item.id)
+                self.window.output_edit.setText(str(self.root / (item.id + item.suffix)))
+                events.clear()
+                result = self.start_and_wait()
+                self.assertEqual(result["status"], "completed")
+                self.assertEqual(result["output_format"], item.id)
+                output = Path(result["output"]).read_text(encoding="utf-8")
+                if item.id == "vtt":
+                    self.assertTrue(output.startswith("WEBVTT\n\n"))
+                    self.assertNotIn("Speaker", output)
+                elif item.id == "srt":
+                    self.assertNotIn("Speaker", output)
+                    self.assertIn(" --> ", output)
+                elif item.id == "sonal-srt":
+                    self.assertIn("Speaker 0:", output)
+                elif item.id == "txt":
+                    self.assertEqual(output, "Bonjour.\n")
+                else:
+                    self.assertIn("SPEAKER_00", output)
+                if work is not None:
+                    self.assertEqual(work, result["work"])
+                    self.assertEqual([e["phase"] for e in events if e.get("status") == "reused"],
+                                     ["audio", "asr", "diarization"])
+                work = result["work"]
+
+    def test_invalid_destination_text_is_handled_when_changing_format(self):
+        self.window.output_edit.setText(self.root.anchor)
+        self.select_format("vtt")
+        self.assertIsNone(self.window.worker)
+        self.assertTrue(self.window.status.text().startswith("Erreur :"))
+
+    def test_format_extension_mismatch_is_rejected_before_loading_backend(self):
+        self.select_format("vtt")
+        self.window.output_edit.setText(str(self.root / "wrong.srt"))
+        self.window.start()
+        self.assertIsNone(self.window.worker)
+        self.assertIn(".vtt", self.window.status.text())
+        from transcrimoi.gui import Backend
+        Backend.verified.assert_not_called()
 
     def test_missing_media_rejected_before_loading_backend(self):
         self.window.source_edit.setText(str(self.root / "absent.mp3"))
@@ -234,6 +316,7 @@ class GuiTests(unittest.TestCase):
         self.window.start()
         self.assertFalse(self.window.source_edit.isEnabled())
         self.assertFalse(self.window.start_button.isEnabled())
+        self.assertFalse(self.window.format_combo.isEnabled())
         # Ne pas annuler avant le démarrage de la phase ASR.
         self.wait_for(lambda: self.window.status.text().startswith("Transcription"))
         original_worker = self.window.worker

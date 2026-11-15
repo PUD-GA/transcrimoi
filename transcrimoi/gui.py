@@ -13,13 +13,14 @@ import time
 from PySide6.QtCore import QStandardPaths, QThread, QTimer, QUrl, Qt, Signal
 from PySide6.QtGui import QCloseEvent, QDesktopServices, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
-    QApplication, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
+    QApplication, QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
     QMessageBox, QProgressBar, QPushButton, QVBoxLayout, QWidget,
 )
 
 from . import __version__
 from .assignment import OMITTED_ASR_TOKENS, Segmentation
 from .backend import Backend
+from .exports import DEFAULT_FORMAT, FORMATS, get_format, validate_output
 from .job import Job
 from .process import Cancelled
 from .runtime import project_root
@@ -32,32 +33,35 @@ PHASES = {
     "asr": "Transcription",
     "diarization": "Distinction des locuteurs",
     "assignment": "Attribution des paroles",
-    "export": "Enregistrement du SRT",
+    "export": "Enregistrement du document",
 }
 MEDIA_FILTER = "Audio et vidéo (*.wav *.mp3 *.m4a *.flac *.mp4 *.mkv *.ogg *.opus *.webm *.mov);;Tous les fichiers (*)"
 
 
-def suggested_output(source: Path) -> Path:
-    """Ne jamais proposer de remplacer un résultat existant."""
-    candidate = source.with_suffix(".srt")
+def available_output(proposed: Path, source: Path | None = None) -> Path:
+    """Ne jamais proposer de remplacer un résultat existant ni la source."""
+    candidate = proposed
     number = 2
-    while candidate.exists() or candidate.resolve() == source.resolve():
-        candidate = source.with_name(f"{source.stem} ({number}).srt")
+    while candidate.exists() or (source is not None and candidate.resolve() == source.resolve()):
+        candidate = proposed.with_name(f"{proposed.stem} ({number}){proposed.suffix}")
         number += 1
     return candidate
 
 
-def validate_paths(source_text: str, output_text: str) -> tuple[Path, Path]:
+def suggested_output(source: Path, format_id: str = DEFAULT_FORMAT) -> Path:
+    return available_output(source.with_suffix(get_format(format_id).suffix), source)
+
+
+def validate_paths(source_text: str, output_text: str, format_id: str = DEFAULT_FORMAT) -> tuple[Path, Path]:
     if not source_text.strip() or not output_text.strip():
-        raise ValueError("Choisissez un média et une destination SRT.")
+        raise ValueError("Choisissez un média et une destination.")
     source = Path(source_text).expanduser().resolve()
     output = Path(output_text).expanduser().resolve()
     if not source.is_file():
         raise ValueError(f"Média absent : {source}")
-    if output == source or output.suffix.lower() != ".srt":
-        raise ValueError("La destination doit être un fichier .srt distinct du média.")
+    validate_output(source, output, format_id)
     if output.exists():
-        raise FileExistsError("Ce SRT existe déjà. Choisissez un autre nom pour préserver les corrections.")
+        raise FileExistsError("Ce document existe déjà. Choisissez un autre nom pour préserver les corrections.")
     return source, output
 
 
@@ -73,9 +77,11 @@ class TranscriptionWorker(QThread):
     event = Signal(dict)
     outcome = Signal(dict)
 
-    def __init__(self, root: Path, cache: Path, source: Path, output: Path, parent=None):
+    def __init__(self, root: Path, cache: Path, source: Path, output: Path, parent=None,
+                 *, output_format: str = DEFAULT_FORMAT):
         super().__init__(parent)
         self.root, self.cache, self.source, self.output = root, cache, source, output
+        self.output_format = output_format
         self.cancel = threading.Event()
 
     def run(self) -> None:
@@ -87,7 +93,7 @@ class TranscriptionWorker(QThread):
                 raise Cancelled("Traitement annulé")
             ffmpeg = find_ffmpeg(self.root)
             threads = min(4, os.cpu_count() or 1)
-            # Identité de reprise indépendante du nom du SRT. Le noyau revérifie
+            # Identité de reprise indépendante du nom et du format de sortie. Le noyau revérifie
             # lui-même toutes les empreintes et refuse toute reprise incompatible.
             identity = {
                 "application": __version__, "source": str(self.source),
@@ -101,8 +107,9 @@ class TranscriptionWorker(QThread):
             work = self.cache / fingerprint(identity)
             self.event.emit({"phase": "verification", "status": "started", "work": str(work)})
             result = Job(backend, threads=threads, event=self.event.emit,
-                         cancel=self.cancel, ffmpeg=ffmpeg).run(self.source, self.output, work)
-            outcome = {"status": "completed", "output": str(self.output),
+                         cancel=self.cancel, ffmpeg=ffmpeg).run(
+                             self.source, self.output, work, output_format=self.output_format)
+            outcome = {"status": "completed", "output": str(self.output), "output_format": self.output_format,
                        "cues": len(result["cues"]), "unknown_words": result["unknown_words"],
                        "omitted_token_count": result["omitted_token_count"]}
         except Cancelled:
@@ -130,44 +137,60 @@ class MainWindow(QMainWindow):
         self._work: Path | None = None
         self._suggested_source: Path | None = None
         self._error = ""
-        self.setWindowTitle("transcrimoi")
-        self.resize(700, 410)
+        self.setWindowTitle("Transcrimoi")
+        self.resize(740, 470)
         self.setAcceptDrops(True)
 
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(12)
-        title = QLabel("transcrimoi")
+        title = QLabel("Transcrimoi")
         font = title.font()
         font.setPointSize(22)
         font.setBold(True)
         title.setFont(font)
         layout.addWidget(title)
-        subtitle = QLabel("Audio ou vidéo → SRT pour SonalPi2\nFluid Speech Pro Q8 · CPU · Traitement local · Reconnaissance multilingue automatique")
-        subtitle.setWordWrap(True)
-        layout.addWidget(subtitle)
+        self.subtitle = QLabel("Audio ou vidéo → transcription au format de votre choix\n"
+                               "Conception TIPS-IA pour fonctionner sur des ordinateurs modestes")
+        self.subtitle.setWordWrap(True)
+        layout.addWidget(self.subtitle)
+        self.repository_link = QLabel(
+            '<a href="https://github.com/PUD-GA/transcrimoi">github.com/PUD-GA/transcrimoi</a>')
+        self.repository_link.setAccessibleName("Dépôt du projet transcrimoi")
+        self.repository_link.setOpenExternalLinks(True)
+        layout.addWidget(self.repository_link)
 
         self.source_edit = QLineEdit()
         self.source_edit.setPlaceholderText("Choisissez ou déposez un fichier audio ou vidéo")
         self.source_button = QPushButton("Choisir…")
         self.output_edit = QLineEdit()
-        self.output_edit.setPlaceholderText("Destination du fichier .srt")
+        self.output_edit.setPlaceholderText("Destination du document")
         self.output_button = QPushButton("Enregistrer sous…")
+        self.format_combo = QComboBox()
+        self.format_combo.setAccessibleName("Format de sortie")
+        self.format_combo.setToolTip("Sans locuteur : sans étiquette dans le fichier, même pipeline.\n"
+                                     "Les choix tabulés sont des exports texte, pas des fichiers de projet.")
+        for item in FORMATS:
+            self.format_combo.addItem(item.label, item.id)
         for label, field, button in (("Média", self.source_edit, self.source_button),
-                                     ("SRT", self.output_edit, self.output_button)):
+                                     ("Destination", self.output_edit, self.output_button)):
+            if field is self.output_edit:
+                layout.addWidget(QLabel("Format de sortie"))
+                layout.addWidget(self.format_combo)
             layout.addWidget(QLabel(label))
             row = QHBoxLayout()
             row.addWidget(field, 1)
             row.addWidget(button)
             layout.addLayout(row)
         self.source_edit.setAccessibleName("Média source")
-        self.output_edit.setAccessibleName("Destination SRT")
+        self.output_edit.setAccessibleName("Destination du document")
         self.source_button.clicked.connect(self.choose_source)
         self.output_button.clicked.connect(self.choose_output)
         self.source_edit.editingFinished.connect(self.suggest_destination)
         self.source_edit.textChanged.connect(self._invalidate_result)
         self.output_edit.textChanged.connect(self._invalidate_result)
+        self.format_combo.currentIndexChanged.connect(self.change_format)
 
         actions = QHBoxLayout()
         self.start_button = QPushButton("Transcrire")
@@ -187,12 +210,12 @@ class MainWindow(QMainWindow):
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
         layout.addWidget(self.progress)
-        self.status = QLabel("Prêt. La correction se fait ensuite dans SonalPi2.")
+        self.status = QLabel("Prêt. Choisissez le format de restitution.")
         self.status.setWordWrap(True)
         self.status.setTextFormat(Qt.TextFormat.PlainText)
         layout.addWidget(self.status)
         links = QHBoxLayout()
-        self.result_button = QPushButton("Ouvrir le dossier du SRT")
+        self.result_button = QPushButton("Ouvrir le dossier du résultat")
         self.result_button.setEnabled(False)
         self.logs_button = QPushButton("Ouvrir les journaux")
         self.logs_button.setEnabled(False)
@@ -211,6 +234,27 @@ class MainWindow(QMainWindow):
         self.timer.setInterval(1000)
         self.timer.timeout.connect(self.update_elapsed)
 
+    @property
+    def output_format(self) -> str:
+        return self.format_combo.currentData()
+
+    def change_format(self) -> None:
+        self._invalidate_result()
+        text = self.output_edit.text().strip()
+        if text:
+            try:
+                path = Path(text).expanduser()
+                item = get_format(self.output_format)
+                if path.suffix.lower() not in item.suffixes:
+                    path = path.with_suffix(item.suffix)
+                source = Path(self.source_edit.text()).expanduser() if self.source_edit.text().strip() else None
+                self.output_edit.setText(str(available_output(path, source)))
+            except (OSError, ValueError) as error:
+                self.set_error(str(error))
+        else:
+            self._suggested_source = None
+            self.suggest_destination()
+
     def _invalidate_result(self) -> None:
         self._result = None
         self.result_button.setEnabled(False)
@@ -224,7 +268,7 @@ class MainWindow(QMainWindow):
     def suggest_destination(self) -> None:
         source = Path(self.source_edit.text()).expanduser()
         if source.is_file() and source != self._suggested_source:
-            self.output_edit.setText(str(suggested_output(source)))
+            self.output_edit.setText(str(suggested_output(source, self.output_format)))
             self._suggested_source = source
 
     def choose_source(self) -> None:
@@ -233,19 +277,20 @@ class MainWindow(QMainWindow):
             self.set_source(Path(filename))
 
     def choose_output(self) -> None:
+        item = get_format(self.output_format)
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Destination du SRT", self.output_edit.text(), "Sous-titres (*.srt)")
+            self, "Destination du document", self.output_edit.text(), item.file_filter)
         if filename:
             path = Path(filename)
             if not path.suffix:
-                path = path.with_suffix(".srt")
+                path = path.with_suffix(item.suffix)
             self.output_edit.setText(str(path))
 
     def start(self) -> None:
         if self.worker is not None:
             return
         try:
-            source, output = validate_paths(self.source_edit.text(), self.output_edit.text())
+            source, output = validate_paths(self.source_edit.text(), self.output_edit.text(), self.output_format)
         except (OSError, ValueError) as error:
             self.set_error(str(error))
             return
@@ -260,7 +305,8 @@ class MainWindow(QMainWindow):
         self._started = time.monotonic()
         self.update_elapsed()
         self.timer.start()
-        self.worker = TranscriptionWorker(self.root, self.cache, source, output, self)
+        self.worker = TranscriptionWorker(self.root, self.cache, source, output, self,
+                                          output_format=self.output_format)
         self.worker.event.connect(self.on_event)
         self.worker.outcome.connect(self._remember_outcome)
         self.worker.finished.connect(self._finished)
@@ -268,7 +314,7 @@ class MainWindow(QMainWindow):
 
     def _set_busy(self, busy: bool) -> None:
         for control in (self.source_edit, self.output_edit, self.source_button,
-                        self.output_button, self.start_button):
+                        self.output_button, self.start_button, self.format_combo):
             control.setEnabled(not busy)
         self.cancel_button.setEnabled(busy)
         self.progress.setRange(0, 0 if busy else 1)
@@ -317,15 +363,19 @@ class MainWindow(QMainWindow):
             self.result_button.setEnabled(True)
             self.progress.setValue(1)
             if outcome["cues"]:
-                message = f"Terminé : {outcome['cues']} blocs. SRT à importer dans SonalPi2."
+                message = f"Terminé : {outcome['cues']} segments. "
+                if outcome.get("output_format", DEFAULT_FORMAT) == DEFAULT_FORMAT:
+                    message += "SRT à importer dans SonalPi2."
+                else:
+                    message += f"Export {outcome['output_format']} enregistré."
                 if outcome["unknown_words"]:
                     message += f" {outcome['unknown_words']} mots sans locuteur."
             elif outcome.get("omitted_token_count", 0):
-                message = "Aucun texte exportable après filtrage : le SRT produit est vide."
+                message = "Aucun texte exportable après filtrage : aucun segment produit."
             else:
-                message = "Aucune parole détectée : le SRT produit est vide."
+                message = "Aucune parole détectée : aucun segment produit."
             if outcome.get("omitted_token_count", 0):
-                message += f" {outcome['omitted_token_count']} marqueur(s) <unk> omis du SRT ; détails dans les journaux."
+                message += f" {outcome['omitted_token_count']} marqueur(s) <unk> omis de l’export ; détails dans les journaux."
             self.status.setText(message)
         elif outcome.get("status") == "cancelled":
             self.status.setText("Traitement annulé. Relancez pour reprendre les étapes validées.")
@@ -400,7 +450,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="Dossier contenant backend.lock.json, build/ et models/")
     args = parser.parse_args(argv)
     app = QApplication.instance() or QApplication([sys.argv[0]])
-    app.setApplicationName("transcrimoi")
+    app.setApplicationName("Transcrimoi")
+    app.setApplicationDisplayName("Transcrimoi")
     app.setOrganizationName("transcrimoi")
     window = MainWindow(args.project_root)
     window.show()

@@ -40,6 +40,16 @@ inaccessible et téléchargement vérifié avant mise en cache.
 Les outils peuvent être lancés directement comme ci-dessus ou comme modules,
 par exemple `python -m tests.tools.check_repository`.
 
+## Formats de sortie
+
+`tests/test_exports.py` contrôle les neuf rendus, les colonnes tabulées, les temps, le
+texte Unicode, WebVTT, les locuteurs inconnus, les résultats vides et les protections
+de fichiers. Les tests Job/Qt vérifient aussi le changement de format sans relancer
+les trois phases natives ; la CLI réexporte un JSON sans backend ni modèles.
+Voir les [conventions et commandes d’export](../docs/formats-export.md).
+Les exports locaux TXT/TSV sont ignorés par Git, à l’exception des noms de code/licence
+explicitement autorisés (`requirements*.txt`, `LICENSE*.txt`, `LICENCE*.txt`, `CMakeLists.txt`).
+
 ## Tester une préversion autonome
 
 `tests/test_desktop_package.py` vérifie sans poids réels ni PyInstaller les emplacements
@@ -49,7 +59,7 @@ traite du silence avec le vrai runtime ; il est lancé automatiquement avant l�
 
 Le workflow manuel **Desktop CPU** avec `native=true` valide le moteur ; `package=true`
 ajoute les builds autonomes et implique `native`. Les petits artefacts `test-report-OS`
-ne sont jamais des applications. Les vrais paquets se trouvent dans `app-preview-OS`.
+ne sont jamais des applications. Les vrais paquets se trouvent dans `transcrimoi-preview-OS`.
 Voir les [instructions des préversions](../docs/paquets-autonomes.md).
 
 ## Vérifier les fichiers avant GitHub

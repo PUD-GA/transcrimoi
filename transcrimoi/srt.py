@@ -35,7 +35,7 @@ def render_srt(cues: list[Cue]) -> str:
         if start < previous or end <= start:
             raise ValueError("Bloc SRT désordonné ou vide après arrondi")
         text = cue.text.strip().replace("\r\n", "\n")
-        if not text or "\n\n" in text or "\r" in text:
+        if not text or re.search(r"\n[ \t]*\n", text) or "\r" in text:
             raise ValueError("Texte SRT vide ou contenant un séparateur de blocs")
         if cue.speaker is not None:
             if type(cue.speaker) is not int or cue.speaker < 0:

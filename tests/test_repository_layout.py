@@ -77,12 +77,14 @@ class IgnoreTests(unittest.TestCase):
             "dist/transcrimoi.zip", "bin/ffmpeg", "somewhere/interview.mp3",
             "somewhere/interview.WaV", "somewhere/export.SRT", "private-corpus.Zip",
             "download/corpus.tar.gz", "signing/AuthKey.p8",
-            "somewhere/export.srt", "weights/model.safetensors", "signing/developer.p12",
+            "somewhere/export.srt", "somewhere/export.txt", "somewhere/export.TXT", "somewhere/export.tsv",
+            "weights/model.safetensors", "signing/developer.p12",
             "signing/key.pem", ".env", ".env.local", "run.log", ".DS_Store",
             "transcrimoi/__pycache__/gui.cpython-312.pyc",
         }
         allowed = {
             ".gitignore", ".env.example", "README.md", "Plan.md", "pyproject.toml", "MANIFEST.in",
+            "LICENSE.txt", "LICENCE.txt", "requirements.txt", "CMakeLists.txt",
             "backend.lock.json", "transcrimoi/gui.py", "transcrimoi/core.py", "scripts/prepare_backend.py",
             "tests/test_gui.py", "tests/paths.py", "tests/tools/check_repository.py",
             "tests/fixtures/corpus_manifest.json", "tests/experiments/ultra-f16.lock.json",
