@@ -13,6 +13,10 @@ on:
         description: "Fabriquer une préversion autonome avec modèles (implique native ; non signée pour distribution)"
         type: boolean
         default: false
+      release:
+        description: "Créer une Release en brouillon avec les archives finales (implique package et native)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -56,26 +60,26 @@ jobs:
           QT_QPA_PLATFORM: ${{ runner.os == 'Windows' && 'windows' || 'offscreen' }}
         run: python tests/tools/smoke_gui.py --preview-only --output-dir tests/runs/gui-preview
       - name: Préparer le vrai moteur CPU et Fluid
-        if: github.event_name == 'workflow_dispatch' && (inputs.native || inputs.package)
+        if: github.event_name == 'workflow_dispatch' && (inputs.native || inputs.package || inputs.release)
         run: python scripts/prepare_backend.py --download-models --jobs 3
       - name: Tests natifs ciblés
-        if: github.event_name == 'workflow_dispatch' && (inputs.native || inputs.package)
+        if: github.event_name == 'workflow_dispatch' && (inputs.native || inputs.package || inputs.release)
         run: ctest --test-dir build/native -C Release -R "^(test_sas_merge|test_vad_segmenter|cli_version_long)$" --output-on-failure
       - name: Fenêtre → Fluid réel → SRT (silence synthétique)
-        if: github.event_name == 'workflow_dispatch' && (inputs.native || inputs.package)
+        if: github.event_name == 'workflow_dispatch' && (inputs.native || inputs.package || inputs.release)
         env:
           QT_QPA_PLATFORM: ${{ runner.os == 'Windows' && 'windows' || 'offscreen' }}
         run: python tests/tools/smoke_gui.py --output-dir tests/runs/gui-native --timeout 300
       - name: Installer les outils de packaging
-        if: github.event_name == 'workflow_dispatch' && inputs.package
+        if: github.event_name == 'workflow_dispatch' && (inputs.package || inputs.release)
         run: python -m pip install -e ".[gui,package]"
       - name: Construire et tester la préversion autonome (modèles inclus)
-        if: github.event_name == 'workflow_dispatch' && inputs.package
+        if: github.event_name == 'workflow_dispatch' && (inputs.package || inputs.release)
         env:
           QT_QPA_PLATFORM: ${{ runner.os == 'Windows' && 'windows' || 'offscreen' }}
         run: python scripts/build_desktop.py
       - name: Préversion autonome Windows — un seul ZIP à extraire
-        if: github.event_name == 'workflow_dispatch' && inputs.package && success() && runner.os == 'Windows'
+        if: github.event_name == 'workflow_dispatch' && (inputs.package || inputs.release) && success() && runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: transcrimoi-preview-windows-x86_64
@@ -84,13 +88,22 @@ jobs:
           retention-days: 7
           if-no-files-found: error
       - name: Préversion autonome Linux/macOS — métadonnées préservées
-        if: github.event_name == 'workflow_dispatch' && inputs.package && success() && runner.os != 'Windows'
+        if: github.event_name == 'workflow_dispatch' && (inputs.package || inputs.release) && success() && runner.os != 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: transcrimoi-preview-${{ matrix.os }}
           path: dist/desktop/*
           compression-level: 0
           retention-days: 7
+          if-no-files-found: error
+      - name: Archives finales pour la Release (transfert interne)
+        if: github.event_name == 'workflow_dispatch' && inputs.release && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ matrix.os }}
+          path: dist/desktop/*
+          compression-level: 0
+          retention-days: 1
           if-no-files-found: error
       - name: Rapports et captures (pas de média utilisateur)
         if: always()
@@ -107,3 +120,35 @@ jobs:
             build/desktop/self-test/report.json
             build/desktop/self-test.log
           if-no-files-found: ignore
+
+  release:
+    name: Release de préversion (brouillon)
+    needs: desktop
+    if: github.event_name == 'workflow_dispatch' && inputs.release
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-assets-*
+          merge-multiple: true
+          path: release-assets
+      - name: Vérifier les archives et préparer les notes
+        run: python scripts/prepare_release.py release-assets --notes release-notes.md
+      - name: Joindre directement les archives à une Release en brouillon
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version=$(python -c 'from transcrimoi import __version__; print(__version__)')
+          tag="preview-v${version}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$tag" release-assets/* \
+            --target "$GITHUB_SHA" \
+            --title "transcrimoi ${version} — préversion (${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT})" \
+            --draft --prerelease --notes-file release-notes.md

@@ -19,7 +19,24 @@ vide et sans environnement Python actif. Aucun cache n’est écrit dans ses res
 Ces vérifications ne sont **pas** des essais sur machines propres, une qualification de
 la parole réelle dans les paquets, ni une autorisation de redistribution publique.
 
-## Deux types d’artefacts GitHub
+## Releases : téléchargement direct des archives finales
+
+L’option manuelle `release` crée une **Release de préversion en brouillon**, uniquement
+après réussite du build et des diagnostics sur les trois OS. Ses pièces jointes (Assets)
+sont les archives finales : ZIP Windows compressé, `.app.zip` macOS créé avec `ditto`
+pour préserver liens et permissions, et `.tar.gz` Linux. **Une seule extraction est
+nécessaire sur chaque plateforme.** Ne pas télécharger les archives « Source code ».
+
+Les tailles, SHA-256 et rapports de diagnostic sont joints séparément. Le job de Release
+vérifie les trois archives et leurs empreintes avant tout envoi. Un tag unique inclut
+la version, le numéro d’exécution et la tentative ; une relance n’écrase pas une préversion
+précédente. Les pièces jointes de Release n’expirent pas après sept jours.
+
+Le brouillon permet une vérification avant publication manuelle depuis **Releases**.
+Il ne résout ni les réserves de licence, ni la signature/notarisation, ni la qualification.
+Aucune publication publique automatique n’est effectuée.
+
+## Artefacts Actions : secours et rapports
 
 - `test-report-OS` : captures, rapports JSON et journaux ; quelques dizaines de Ko.
   Ce n’est **pas une application**.
@@ -31,8 +48,9 @@ la parole réelle dans les paquets, ni une autorisation de redistribution publiq
   dépendance Torch/Photon ni besoin de Python, compilateur, réseau ou FFmpeg
   préinstallés pour l’utiliser. Les bibliothèques système de l’OS restent nécessaires.
 
-Les artefacts restent sept jours pour les préversions volumineuses ; aucune release
-GitHub n’est créée. Ne pas confondre un artefact de tests avec le paquet de l’application.
+Ces artefacts Actions restent sept jours. Leur enveloppe ZIP supplémentaire sur Linux
+et macOS subsiste comme solution de secours ; pour une seule extraction, choisir les
+pièces jointes de la Release. Ne pas confondre un rapport de tests avec l’application.
 
 ## Lancer les validations
 
@@ -41,6 +59,10 @@ GitHub → Actions → **Desktop CPU** → **Run workflow**, branche `main` :
 1. `native=true`, `package=false` : compiler et tester les vrais modèles sur les trois OS.
 2. `package=true` : implique la validation native, puis construit, teste et archive
    l’application autonome sur chaque OS. Les poids sont téléchargés une fois par job.
+3. `release=true` : implique `package` et `native`, puis crée une Release en brouillon
+   avec les archives finales des trois OS. Vérifier ses pièces jointes et ses notes dans
+   **Releases**, puis publier manuellement la préversion si sa diffusion est autorisée.
+   Le jeton GitHub reçoit le droit d’écriture uniquement dans le job de Release.
 
 Un push ou une pull request ne lance que les tests simulés et la capture, sans modèles
 ni packaging. Un paquet n’est archivé qu’après réussite du diagnostic du binaire gelé.
@@ -49,16 +71,20 @@ ni packaging. Un paquet n’est archivé qu’après réussite du diagnostic du 
 
 Ouvrir le paquet correspondant à la plateforme :
 
-- **Windows x86-64** : extraire une seule fois le ZIP téléchargé, puis lancer
-  `Transcrimoi.exe`. Conserver `_internal/` à côté du programme.
-- **macOS Apple Silicon** : extraire l’artefact GitHub, puis le `.app.zip` en préservant les liens symboliques,
+- **Windows x86-64** : extraire une seule fois le ZIP de la Release, ouvrir le dossier
+  `transcrimoi`, puis lancer `Transcrimoi.exe`. Conserver `_internal/` à côté du programme.
+- **macOS Apple Silicon** : extraire une seule fois le `.app.zip` de la Release avec
+  l’Utilitaire d’archive de macOS, en préservant les liens symboliques,
   puis ouvrir `transcrimoi.app`. Finder peut refuser cette application non notariée ;
   pour un essai de confiance, utiliser la procédure d’autorisation manuelle de macOS.
   Aucune désactivation globale de Gatekeeper n’est nécessaire ni recommandée.
   Cette matrice ne produit pas de paquet Mac Intel.
-- **Linux x86-64** : extraire l’artefact GitHub, puis le `.tar.gz` en conservant les permissions et les liens,
+- **Linux x86-64** : extraire une seule fois le `.tar.gz` de la Release en conservant les permissions et les liens,
   lancer `transcrimoi/transcrimoi`. Le paquet CI est construit sur Ubuntu 22.04 ; la
   compatibilité avec d’autres distributions, glibc, affichages et CPU reste à tester.
+
+Si vous téléchargez les artefacts Actions de secours plutôt qu’une Release, extraire
+d’abord le ZIP ajouté par GitHub sur Linux/macOS ; Windows reste à une extraction.
 
 Ne pas déplacer un exécutable seul hors de son dossier. Les paquets utilisent le
 runtime embarqué, pas le dépôt source. Leurs checkpoints et journaux vont dans les

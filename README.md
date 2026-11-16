@@ -18,33 +18,36 @@ pilote.
 Les paquets actuels sont des **préversions autonomes d’environ 1,1 à 1,2 Go**. Ils
 contiennent l’application, les modèles, FFmpeg et le moteur CPU : il n’est pas nécessaire
 d’installer Python, Torch, CUDA ou FFmpeg séparément. Télécharger le paquet correspondant
-à la machine, puis suivre la procédure ci-dessous.
+à la machine dans les pièces jointes (Assets) d’une
+[Release de préversion](https://github.com/PUD-GA/transcrimoi/releases), lorsqu’elle est
+publiée, puis suivre la procédure ci-dessous. Ne pas choisir les archives « Source code ».
+Les archives de Release s’extraient une seule fois sur chaque plateforme.
 
 ### Windows — x86-64
 
-1. Télécharger `transcrimoi-preview-windows-x86_64.zip`.
+1. Télécharger `transcrimoi-preview-…-windows-x86_64.zip` dans la Release.
 2. Extraire ce ZIP une seule fois.
 3. Dans le dossier extrait, lancer `Transcrimoi.exe` en conservant `_internal` à côté.
 
 ### Linux — x86-64
 
-1. Télécharger l’artefact Linux et l’extraire.
-2. Extraire ensuite `transcrimoi-preview-…-linux-x86_64.tar.gz` afin de préserver les
-   permissions des exécutables.
+1. Télécharger `transcrimoi-preview-…-linux-x86_64.tar.gz` dans la Release.
+2. Extraire cette archive une seule fois en préservant les permissions des exécutables.
 3. Ouvrir le dossier `transcrimoi`, puis lancer `./transcrimoi`.
 
 ### macOS — Apple Silicon
 
-1. Télécharger l’artefact macOS et l’extraire.
-2. Extraire ensuite `transcrimoi-preview-…-macos-arm64.app.zip`, qui préserve la structure
-   de l’application, puis déplacer `transcrimoi.app` dans `Applications` si souhaité.
+1. Télécharger `transcrimoi-preview-…-macos-arm64.app.zip` dans la Release.
+2. Extraire ce ZIP une seule fois avec l’Utilitaire d’archive de macOS, puis déplacer
+   `transcrimoi.app` dans `Applications` si souhaité.
 3. Ouvrir l’application. La préversion n’étant pas encore notariée, macOS peut demander
    de confirmer manuellement son ouverture dans les réglages de sécurité.
 
 Ces préversions ne sont pas encore des installateurs signés. Le paquet macOS actuel ne
 prend pas en charge les Mac Intel et la compatibilité des processeurs x86 sans AVX2 reste
 à qualifier. Les paquets peuvent être générés depuis **GitHub Actions → Desktop CPU**
-avec l’option `package`, ou fournis directement aux testeurs. Voir les
+avec l’option `release` (brouillon à publier après vérification), ou `package` pour
+conserver uniquement les artefacts Actions. Voir les
 [instructions détaillées et limites](docs/paquets-autonomes.md).
 
 ## Langues
@@ -266,9 +269,15 @@ python -m transcrimoi transcribe chemin/entretien.mp3 \
 Les artefacts `test-report-OS` de la CI sont de petits rapports/captures, **pas des applications**.
 Dans Actions → **Desktop CPU** → **Run workflow**, activer `package` pour compiler,
 tester et produire un artefact `transcrimoi-preview-OS` avec Python, Qt, FFmpeg, moteur et modèles.
-L’option implique les tests natifs. Les archives sont un `.app.zip` macOS, un ZIP Windows
-ou un `.tar.gz` Linux, avec taille et empreinte SHA-256 ; leur poids est de l’ordre du Go,
-pas de quelques Ko. Elles restent sept jours et aucune release n’est publiée.
+Activer plutôt `release` pour créer également une **Release en brouillon de préversion**
+avec les archives finales directement téléchargeables ; cette option implique `package`
+et les tests natifs. Après réussite des trois OS, vérifier le brouillon dans **Releases**,
+puis le publier manuellement lorsque la diffusion est autorisée.
+Les archives sont un `.app.zip` macOS, un ZIP Windows compressé ou un `.tar.gz` Linux,
+avec taille, SHA-256 et rapport de diagnostic ; leur poids est de l’ordre du Go.
+Les artefacts Actions restent sept jours ; les pièces jointes de Release n’ont pas cette
+expiration. Pour les anciens artefacts Actions uniquement, Linux/macOS demandent encore
+d’extraire l’enveloppe ZIP GitHub avant l’archive finale.
 
 Ce sont des paquets de validation non signés pour distribution, pas des installateurs
 finaux. Consulter les [instructions, limites et notices](docs/paquets-autonomes.md).

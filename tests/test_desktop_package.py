@@ -6,6 +6,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+import zipfile
 
 from scripts.build_desktop import archive_bundle, artifact_name, stage_runtime, stamp_manifest
 from transcrimoi import __version__
@@ -110,6 +111,21 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(archive.name, "transcrimoi-preview-0.2.0-linux-x86_64.tar.gz")
             with tarfile.open(archive) as stream:
                 self.assertEqual(stream.getmember("transcrimoi/transcrimoi").mode & 0o111, 0o111)
+
+    def test_windows_final_archive_is_compressed_and_contains_bundle_directly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = root / "transcrimoi"
+            bundle.mkdir()
+            (bundle / "Transcrimoi.exe").write_bytes(b"fake executable" * 100)
+            with patch("scripts.build_desktop.os", SimpleNamespace(name="nt")), \
+                    patch.object(sys, "platform", "win32"):
+                archive = archive_bundle(bundle, root / "transcrimoi-preview-windows-x86_64")
+            with zipfile.ZipFile(archive) as stream:
+                entry = stream.getinfo("transcrimoi/Transcrimoi.exe")
+                self.assertEqual(entry.compress_type, zipfile.ZIP_DEFLATED)
+                self.assertLess(entry.compress_size, entry.file_size)
+                self.assertFalse(any(name.endswith(".zip") for name in stream.namelist()))
 
     def test_macos_archive_uses_ditto_and_preserves_full_name(self):
         with patch.object(sys, "platform", "darwin"), patch("scripts.build_desktop.subprocess.run") as run:
