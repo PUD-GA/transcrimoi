@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict
+from html import escape
 import os
 from pathlib import Path
 import shutil
@@ -14,16 +15,17 @@ from PySide6.QtCore import QStandardPaths, QThread, QTimer, QUrl, Qt, Signal
 from PySide6.QtGui import QCloseEvent, QDesktopServices, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-    QMessageBox, QProgressBar, QPushButton, QVBoxLayout, QWidget,
+    QMessageBox, QProgressBar, QProxyStyle, QPushButton, QStyle, QToolTip, QVBoxLayout, QWidget,
 )
 
 from . import __version__
 from .assignment import OMITTED_ASR_TOKENS, Segmentation
 from .backend import Backend
-from .exports import DEFAULT_FORMAT, FORMATS, get_format, validate_output
+from .exports import DEFAULT_FORMAT, FORMATS, get_format, render_export, validate_output
 from .job import Job
 from .process import Cancelled
 from .runtime import project_root
+from .schema import Cue
 from .storage import fingerprint, sha256_file
 
 PHASES = {
@@ -36,6 +38,34 @@ PHASES = {
     "export": "Enregistrement du document",
 }
 MEDIA_FILTER = "Audio et vidéo (*.wav *.mp3 *.m4a *.flac *.mp4 *.mkv *.ogg *.opus *.webm *.mov);;Tous les fichiers (*)"
+
+
+def format_tooltip(format_id: str) -> str:
+    """Illustrer chaque format avec le même échange, via le véritable exporteur."""
+    item = get_format(format_id)
+    example = render_export([
+        Cue(0.0, 2.5, "Bonjour, comment allez-vous ?", 0),
+        Cue(3.0, 5.0, "Très bien, merci !", 1),
+    ], format_id)
+    notes = []
+    if format_id in ("txt", "srt", "vtt"):
+        notes.append("Sans étiquette de locuteur dans le fichier ; même pipeline de transcription.")
+    if "\t" in example:
+        notes.append("⇥ représente une tabulation, invisible dans le fichier.")
+        notes.append("Export texte tabulé, pas un fichier de projet.")
+    preview = escape(example.rstrip()).replace("\t", " ⇥ ")
+    details = "".join(f"<p>{escape(note)}</p>" for note in notes)
+    return (f"<b>{escape(item.label)}</b><br>Exemple fictif · fichier {escape(item.suffix)}"
+            f"<pre style='white-space: pre; font-family: monospace;'>{preview}</pre>{details}")
+
+
+class FormatPreviewStyle(QProxyStyle):
+    """Accélérer uniquement les infobulles du choix de format."""
+
+    def styleHint(self, hint, option=None, widget=None, returnData=None):
+        if hint == QStyle.StyleHint.SH_ToolTip_WakeUpDelay:
+            return 150
+        return super().styleHint(hint, option, widget, returnData)
 
 
 def available_output(proposed: Path, source: Path | None = None) -> Path:
@@ -169,10 +199,16 @@ class MainWindow(QMainWindow):
         self.output_button = QPushButton("Enregistrer sous…")
         self.format_combo = QComboBox()
         self.format_combo.setAccessibleName("Format de sortie")
-        self.format_combo.setToolTip("Sans locuteur : sans étiquette dans le fichier, même pipeline.\n"
-                                     "Les choix tabulés sont des exports texte, pas des fichiers de projet.")
         for item in FORMATS:
             self.format_combo.addItem(item.label, item.id)
+            self.format_combo.setItemData(self.format_combo.count() - 1, format_tooltip(item.id),
+                                          Qt.ItemDataRole.ToolTipRole)
+        self._format_preview_style = FormatPreviewStyle()
+        self._format_preview_style.setParent(self.format_combo)
+        for control in (self.format_combo, self.format_combo.view(), self.format_combo.view().viewport()):
+            control.setStyle(self._format_preview_style)
+            control.setToolTipDuration(20000)
+        self._update_format_preview()
         for label, field, button in (("Média", self.source_edit, self.source_button),
                                      ("Destination", self.output_edit, self.output_button)):
             if field is self.output_edit:
@@ -238,7 +274,13 @@ class MainWindow(QMainWindow):
     def output_format(self) -> str:
         return self.format_combo.currentData()
 
+    def _update_format_preview(self) -> None:
+        tooltip = self.format_combo.currentData(Qt.ItemDataRole.ToolTipRole)
+        self.format_combo.setToolTip(tooltip)
+
     def change_format(self) -> None:
+        QToolTip.hideText()
+        self._update_format_preview()
         self._invalidate_result()
         text = self.output_edit.text().strip()
         if text:

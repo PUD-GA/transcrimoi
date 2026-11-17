@@ -149,6 +149,9 @@ python -m venv .venv-gui
 
 L’entrée installée `transcrimoi-gui` lance aussi la fenêtre, sans console sous Windows.
 L’interface n’ajoute que **PySide6-Essentials et Shiboken**, pas WebEngine.
+Pour comparer les formats, survolez le sélecteur ou les options de sa liste :
+une infobulle présente le même échange fictif dans le format correspondant,
+avec un délai d’apparition réduit à 150 ms.
 Le venv historique `.venv` contient les dépendances de l’essai Photon : ne pas le réutiliser
 pour fabriquer un paquet. Employer un environnement propre comme `.venv-gui`.
 

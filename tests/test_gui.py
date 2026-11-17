@@ -1,4 +1,5 @@
 """Tests de fenêtre avec vrais threads/processus et FFmpeg, inférence simulée."""
+from html import unescape
 import importlib.util
 import json
 import os
@@ -11,15 +12,16 @@ import unittest
 from unittest.mock import patch
 import wave
 
-from transcrimoi.exports import FORMATS
+from transcrimoi.exports import FORMATS, render_export
+from transcrimoi.schema import Cue
 
 HAS_QT = importlib.util.find_spec("PySide6") is not None
 if HAS_QT:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtCore import QCoreApplication, QEvent, QMimeData, QUrl, Qt
-    from PySide6.QtGui import QCloseEvent
+    from PySide6.QtGui import QCloseEvent, QHelpEvent
     from PySide6.QtTest import QTest
-    from PySide6.QtWidgets import QApplication, QMessageBox
+    from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton, QStyle, QToolTip
     from transcrimoi.gui import MainWindow, suggested_output, validate_paths
 
 
@@ -69,6 +71,7 @@ class GuiTests(unittest.TestCase):
         self.window.set_source(self.source)
 
     def tearDown(self):
+        QToolTip.hideText()
         if self.window.worker is not None:
             self.window.cancel()
             self.wait_for(lambda: self.window.worker is None)
@@ -162,6 +165,55 @@ class GuiTests(unittest.TestCase):
         self.window.output_edit.setText(str(self.root / "table.tsv"))
         self.select_format("elan")
         self.assertEqual(Path(self.window.output_edit.text()), self.root / "table.tsv")
+
+    def test_format_previews_match_real_exports_and_follow_selection(self):
+        cues = [Cue(0.0, 2.5, "Bonjour, comment allez-vous ?", 0),
+                Cue(3.0, 5.0, "Très bien, merci !", 1)]
+        for item in FORMATS:
+            with self.subTest(format=item.id):
+                self.select_format(item.id)
+                tooltip = self.window.format_combo.currentData(Qt.ItemDataRole.ToolTipRole)
+                self.assertIn(item.label, unescape(tooltip))
+                preview = unescape(tooltip.split("<pre", 1)[1].split(">", 1)[1].split("</pre>", 1)[0])
+                self.assertEqual(preview.replace(" ⇥ ", "\t"), render_export(cues, item.id).rstrip())
+                self.assertEqual(self.window.format_combo.toolTip(), tooltip)
+                if "\t" in render_export(cues, item.id):
+                    self.assertIn("représente une tabulation", tooltip)
+                    self.assertIn("pas un fichier de projet", tooltip)
+
+    def test_format_preview_delay_is_short_and_local_to_format_controls(self):
+        combo = self.window.format_combo
+        for control in (combo, combo.view(), combo.view().viewport()):
+            with self.subTest(control=type(control).__name__):
+                self.assertEqual(control.style().styleHint(QStyle.StyleHint.SH_ToolTip_WakeUpDelay), 150)
+        self.assertIsNot(combo.style(), self.window.source_button.style())
+        self.assertNotIn("Exemple", [button.text() for button in self.window.findChildren(QPushButton)])
+
+    def test_hovering_selected_format_previews_without_changing_destination(self):
+        self.select_format("elan")
+        combo = self.window.format_combo
+        before = (self.window.output_format, self.window.output_edit.text())
+        position = combo.rect().center()
+        event = QHelpEvent(QEvent.Type.ToolTip, position, combo.mapToGlobal(position))
+        QCoreApplication.sendEvent(combo, event)
+        self.assertEqual(QToolTip.text(), combo.toolTip())
+        self.assertEqual((self.window.output_format, self.window.output_edit.text()), before)
+        self.assertIsNone(self.window.worker)
+
+    def test_hovering_format_in_popup_previews_without_selecting(self):
+        combo = self.window.format_combo
+        combo.showPopup()
+        self.app.processEvents()
+        view = combo.view()
+        index = combo.model().index(combo.findData("vtt"), combo.modelColumn())
+        view.scrollTo(index)
+        self.app.processEvents()
+        position = view.visualRect(index).center()
+        event = QHelpEvent(QEvent.Type.ToolTip, position, view.viewport().mapToGlobal(position))
+        QCoreApplication.sendEvent(view.viewport(), event)
+        self.assertEqual(QToolTip.text(), index.data(Qt.ItemDataRole.ToolTipRole))
+        self.assertEqual(self.window.output_format, "sonal-srt")
+        combo.hidePopup()
 
     def test_format_change_does_not_overwrite_an_existing_document(self):
         existing = self.source.with_suffix(".txt")
